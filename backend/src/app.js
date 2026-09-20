@@ -51,7 +51,8 @@ const corsOptions = {
       allowed.length === 0 ||
       allowed.includes('*') ||
       allowed.includes(cleanOrigin) ||
-      cleanOrigin.endsWith('.netlify.app')
+      cleanOrigin.endsWith('.netlify.app') ||
+      cleanOrigin.includes('jstudio.tech')
     ) {
       return cb(null, true);
     }
