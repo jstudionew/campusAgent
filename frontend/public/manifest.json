@@ -1,0 +1,15 @@
+{
+  "short_name": "CampusAgent",
+  "name": "CampusAgent by J-Studio",
+  "icons": [
+    {
+      "src": "CAlogo.jfif",
+      "sizes": "any",
+      "type": "image/jpeg"
+    }
+  ],
+  "start_url": ".",
+  "display": "standalone",
+  "theme_color": "#000000",
+  "background_color": "#ffffff"
+}
