@@ -36,15 +36,23 @@ const resolveFrontendDistDir = () => {
 // CORS
 const allowed = (process.env.CORS_ORIGINS || '')
   .split(',')
-  .map((s) => s.trim())
+  .map((s) => s.trim().replace(/\/$/, ''))
   .filter(Boolean);
+
 const corsOptions = {
   origin: (origin, cb) => {
     // Packaged Electron app loads via file:// where Origin can be 'null' or 'file://'
     if (!origin || origin === 'null' || origin.startsWith('file://')) {
       return cb(null, true);
     }
-    if (process.env.NODE_ENV !== 'production' || allowed.length === 0 || allowed.includes(origin)) {
+    const cleanOrigin = origin.replace(/\/$/, '');
+    if (
+      process.env.NODE_ENV !== 'production' ||
+      allowed.length === 0 ||
+      allowed.includes('*') ||
+      allowed.includes(cleanOrigin) ||
+      cleanOrigin.endsWith('.netlify.app')
+    ) {
       return cb(null, true);
     }
     return cb(null, false);
