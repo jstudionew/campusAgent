@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusAgent - Loading</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      user-select: none;
+    }
+    body {
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+      background: linear-gradient(135deg, #0b1437 0%, #111c44 50%, #1b255a 100%);
+      color: #ffffff;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100vh;
+      overflow: hidden;
+      -webkit-app-region: drag;
+    }
+    .container {
+      text-align: center;
+      padding: 40px;
+      max-width: 450px;
+    }
+    .logo-container {
+      margin-bottom: 24px;
+      position: relative;
+    }
+    .logo {
+      width: 80px;
+      height: 80px;
+      border-radius: 20px;
+      box-shadow: 0 10px 30px rgba(67, 24, 255, 0.4);
+      animation: pulse 2.5s infinite ease-in-out;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 700;
+      letter-spacing: -0.5px;
+      margin-bottom: 6px;
+      background: linear-gradient(90deg, #ffffff, #a3b1cc);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+    }
+    p.tagline {
+      font-size: 13px;
+      color: #a3b1cc;
+      margin-bottom: 30px;
+    }
+    .spinner-container {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 14px;
+    }
+    .spinner {
+      width: 36px;
+      height: 36px;
+      border: 3px solid rgba(255, 255, 255, 0.1);
+      border-top: 3px solid #4318ff;
+      border-radius: 50%;
+      animation: spin 0.9s linear infinite;
+    }
+    .status-text {
+      font-size: 13px;
+      color: #e0e5f2;
+      font-weight: 500;
+    }
+    .status-sub {
+      font-size: 11px;
+      color: #8f9bba;
+      margin-top: 4px;
+    }
+    .footer {
+      position: absolute;
+      bottom: 16px;
+      font-size: 11px;
+      color: #707eae;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+    @keyframes pulse {
+      0%, 100% { transform: scale(1); opacity: 0.95; }
+      50% { transform: scale(1.05); opacity: 1; }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo-container">
+      <img class="logo" src="../frontend/public/school_icon.png" alt="CampusAgent" onerror="this.style.display='none'" />
+    </div>
+    <h1>CampusAgent</h1>
+    <p class="tagline">School Management & Automation</p>
+    
+    <div class="spinner-container">
+      <div class="spinner"></div>
+      <div>
+        <div id="status" class="status-text">Starting server services...</div>
+        <div id="substatus" class="status-sub">Checking database connection</div>
+      </div>
+    </div>
+  </div>
+  <div class="footer">v1.0.0 &bull; Powered by J-Studio</div>
+
+  <script>
+    const statusEl = document.getElementById('status');
+    const substatusEl = document.getElementById('substatus');
+    const messages = [
+      { text: "Starting backend services...", sub: "Initializing HTTP server" },
+      { text: "Connecting to database...", sub: "Verifying tables & schemas" },
+      { text: "Loading application interface...", sub: "Almost ready" }
+    ];
+    let idx = 0;
+    setInterval(() => {
+      if (idx < messages.length - 1) {
+        idx++;
+        statusEl.textContent = messages[idx].text;
+        substatusEl.textContent = messages[idx].sub;
+      }
+    }, 1800);
+  </script>
+</body>
+</html>

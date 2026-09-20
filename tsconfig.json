@@ -1,0 +1,4 @@
+{
+  "include": ["frontend/src"],
+  "exclude": ["backend", "electron", "frontend-legacy", "node_modules", "dist", "release"]
+}

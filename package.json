@@ -1,0 +1,95 @@
+{
+  "name": "campusagent",
+  "private": true,
+  "version": "1.0.0",
+  "description": "CampusAgent - School Management & Automation System",
+  "author": "J-Studio",
+  "type": "module",
+  "main": "electron/main.js",
+  "scripts": {
+    "predev": "node -e \"const {execSync}=require('child_process');['5173','59201'].forEach(p=>{try{const r=execSync('netstat -aon | findstr :'+p,{encoding:'utf8'});r.split('\\n').forEach(l=>{const m=l.trim().split(/\\s+/);if(m.length>=5&&(m[1].endsWith(':'+p)||m[1].endsWith('.'+p))){try{execSync('taskkill /F /PID '+m[4]);}catch(e){}}});}catch(e){}});\"",
+    "dev": "concurrently -n FRONTEND,BACKEND,ELECTRON -c cyan,magenta,green \"npm run dev:front\" \"npm run dev:back\" \"npm run dev:electron\"",
+    
+    "dev:front": "npm --prefix frontend run dev",
+    "dev:back": "npm --prefix backend run dev",
+    "dev:electron": "wait-on http://127.0.0.1:5173 http://127.0.0.1:59201/health && cross-env VITE_DEV_SERVER_URL=http://127.0.0.1:5173 NODE_ENV=development electron ./electron/main.js",
+    "build": "npm --prefix frontend install && npm --prefix frontend run build",
+    "build:front": "npm --prefix frontend run build",
+    "build:backend": "npm --prefix backend run build",
+    "make:ico": "node ./scripts/make-ico.mjs",
+    "dist:win": "npm run make:ico && npm run build:front && npm run build:backend && cross-env PUPPETEER_SKIP_DOWNLOAD=1 npm --prefix backend install --omit=dev && cross-env CSC_IDENTITY_AUTO_DISCOVERY=false electron-builder -w",
+    "preview": "npm --prefix frontend run preview",
+    "start": "npm --prefix backend start",
+    "postinstall": "npm --prefix backend install && npm --prefix frontend install"
+  },
+  "devDependencies": {
+    "@babel/plugin-transform-react-jsx": "^7.27.1",
+    "@tailwindcss/postcss": "^4.1.16",
+    "@types/react": "^18.2.0",
+    "@types/react-dom": "^18.2.0",
+    "@vitejs/plugin-react": "^5.1.0",
+    "autoprefixer": "^10.4.21",
+    "concurrently": "^9.2.1",
+    "cross-env": "^10.1.0",
+    "electron": "^39.2.4",
+    "electron-builder": "^26.0.12",
+    "jimp": "^0.22.10",
+    "png-to-ico": "^2.1.8",
+    "postcss": "^8.5.6",
+    "tailwindcss": "^4.1.16",
+    "typescript": "~5.9.3",
+    "vite": "^7.1.7",
+    "vite-plugin-svgr": "^4.5.0",
+    "wait-on": "^9.0.3"
+  },
+  "dependencies": {},
+  "build": {
+    "appId": "tech.jstudio.campusagent",
+    "productName": "CampusAgent",
+    "artifactName": "CampusAgent-Setup-${version}.${ext}",
+    "npmRebuild": false,
+    "nodeGypRebuild": false,
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**",
+      "electron/**",
+      "frontend/public/**",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "backend",
+        "to": "backend",
+        "filter": [
+          "**/*",
+          "!node_modules/**"
+        ]
+      },
+      {
+        "from": "backend/node_modules",
+        "to": "backend/node_modules",
+        "filter": [
+          "**/*",
+          "!puppeteer/.local-chromium/**",
+          "!**/*.map"
+        ]
+      }
+    ],
+    "win": {
+      "target": "nsis",
+      "icon": "frontend/public/favicon.ico"
+    },
+    "nsis": {
+      "oneClick": false,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": "always",
+      "createStartMenuShortcut": true,
+      "shortcutName": "CampusAgent",
+      "installerIcon": "frontend/public/favicon.ico",
+      "uninstallerIcon": "frontend/public/favicon.ico"
+    }
+  }
+}
