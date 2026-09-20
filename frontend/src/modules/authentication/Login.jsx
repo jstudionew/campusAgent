@@ -89,13 +89,18 @@ function SignIn() {
     e.preventDefault();
     clearError();
 
-    // If owner license step is active or key is provided, submit with license key
-    if (ownerStep1Passed || ownerKey) {
+    // If in setup mode or key is provided, send ownerKey directly
+    if (setupMode || ownerStep1Passed || ownerKey) {
+      if (setupMode && ownerKey.trim().length > 0 && ownerKey.trim().length < 30) {
+        // Validation: key must be at least 30 characters
+        alert('Owner license key must be at least 30 characters long.');
+        return;
+      }
       await login(email, password, false, ownerKey);
       return;
     }
 
-    // Step 1: Normal login attempt
+    // Normal login attempt
     const res = await login(email, password, false, undefined);
     if (!res?.success) {
       const requiresKey =
@@ -259,7 +264,7 @@ function SignIn() {
               </InputGroup>
             </FormControl>
 
-            {(ownerStep1Passed || ownerKey) ? (
+            {(setupMode || ownerStep1Passed || ownerKey) ? (
               <FormControl>
                 <FormLabel
                   htmlFor='login-license-key'
@@ -273,10 +278,10 @@ function SignIn() {
                 <InputGroup size='md' ref={ownerKeyBlockRef}>
                   <Input
                     id='login-license-key'
-                    isRequired={true}
+                    isRequired={setupMode}
                     fontSize='sm'
                     placeholder='Enter 30+ character license key to initialize'
-                    mb='24px'
+                    mb='6px'
                     size='lg'
                     type={showOwnerKey ? 'text' : 'password'}
                     variant='auth'
@@ -294,6 +299,9 @@ function SignIn() {
                     />
                   </InputRightElement>
                 </InputGroup>
+                <Text fontSize='xs' color='gray.500' mb='20px' ms='4px'>
+                  First-time deployment: Enter any 30+ character key of your choice to activate the system.
+                </Text>
               </FormControl>
             ) : null}
             
