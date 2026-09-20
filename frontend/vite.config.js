@@ -1,6 +1,7 @@
 import { defineConfig, transformWithEsbuild } from 'vite';
 import react from '@vitejs/plugin-react';
 import svgr from 'vite-plugin-svgr';
+import fs from 'fs';
 import path from 'path';
 import { fileURLToPath } from 'url';
 
@@ -23,6 +24,20 @@ export default defineConfig({
           return transformWithEsbuild(code, id, { loader: 'jsx', jsx: 'automatic' });
         }
         return null;
+      },
+    },
+    {
+      name: 'sync-dist-dirs',
+      closeBundle() {
+        try {
+          const rootDist = path.resolve(__dirname, '../dist');
+          const frontDist = path.resolve(__dirname, 'dist');
+          if (fs.existsSync(rootDist)) {
+            fs.cpSync(rootDist, frontDist, { recursive: true, force: true });
+          }
+        } catch (e) {
+          // Non-blocking notice
+        }
       },
     }
   ],
@@ -51,7 +66,9 @@ export default defineConfig({
   },
   
   build: {
-    outDir: path.resolve(__dirname, '../dist'), // Output directory for build
+    outDir: process.env.VITE_OUT_DIR
+      ? path.resolve(__dirname, process.env.VITE_OUT_DIR)
+      : path.resolve(__dirname, '../dist'), // Output directory for build
     emptyOutDir: true,
   },
   optimizeDeps: {
