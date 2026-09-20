@@ -57,11 +57,6 @@ function SignIn() {
   const ownerKeyRef = useRef(null);
   const ownerKeyBlockRef = useRef(null);
 
-  const ownerEmail = 'campusagent@jstudio.tech';
-  const ownerUsername = 'campusagent';
-  const ident = String(email).trim().toLowerCase();
-  const isOwnerEmail = ident === ownerEmail.toLowerCase() || ident === ownerUsername;
-
   // Auth Context
   const { login, clearError, loading: authLoading, error: authError, isAuthenticated } = useAuth();
 
@@ -92,32 +87,35 @@ function SignIn() {
   // Handle form submission
   const handleSubmit = async (e) => {
     e.preventDefault();
-    // Two-step owner flow: first verify creds, then prompt for license key
-    if (isOwnerEmail) {
-      // Step 1: if key not yet provided and step1 not passed, attempt login to trigger owner-key prompt
-      if (!ownerStep1Passed && !ownerKey) {
-        const res = await login(email, password, false, undefined);
-        if (!res?.success) {
-          const requiresKey =
-            res?.status === 401 && (res?.data?.code === 'OWNER_KEY_REQUIRED' || /owner key|key not set/i.test(String(res?.error || '')));
-          if (requiresKey) {
-            // Treat as step-1 success; reveal key field without showing error
-            clearError();
-            setOwnerStep1Passed(true);
-            setTimeout(() => {
-              try { ownerKeyRef.current?.focus({ preventScroll: false }); } catch (_) {}
-            }, 0);
-          }
-        }
-        // stop here regardless; either error shown or key field revealed
-        return;
-      }
-      // Step 2: have key, complete login
+    clearError();
+
+    // If owner license step is active or key is provided, submit with license key
+    if (ownerStep1Passed || ownerKey) {
       await login(email, password, false, ownerKey);
       return;
     }
-    // Non-owner: normal login
-    await login(email, password, false, undefined);
+
+    // Step 1: Normal login attempt
+    const res = await login(email, password, false, undefined);
+    if (!res?.success) {
+      const requiresKey =
+        res?.status === 401 &&
+        (res?.data?.code === 'OWNER_KEY_REQUIRED' ||
+          /owner key|key not set/i.test(String(res?.error || '')) ||
+          /owner key|key not set/i.test(String(res?.data?.message || '')));
+
+      if (requiresKey) {
+        // Owner credentials valid, now prompt for initial license key setup
+        clearError();
+        setOwnerStep1Passed(true);
+        setTimeout(() => {
+          try {
+            ownerKeyBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            ownerKeyRef.current?.focus({ preventScroll: false });
+          } catch (_) {}
+        }, 100);
+      }
+    }
   };
 
   // After step 1 passes, focus license key
@@ -128,15 +126,6 @@ function SignIn() {
       }, 0);
     }
   }, [ownerStep1Passed]);
-
-  // Ensure the license key block scrolls into view whenever owner is selected or owner email typed
-  useEffect(() => {
-    if (isOwnerEmail) {
-      setTimeout(() => {
-        try { ownerKeyBlockRef.current?.scrollIntoView({ behavior: 'smooth', block: 'center' }); } catch (_) {}
-      }, 0);
-    }
-  }, [isOwnerEmail]);
 
   return (
     <DefaultAuth illustrationBackground={illustration} image={illustration}>
@@ -270,7 +259,7 @@ function SignIn() {
               </InputGroup>
             </FormControl>
 
-            {(isOwnerEmail || ownerStep1Passed) ? (
+            {(ownerStep1Passed || ownerKey) ? (
               <FormControl>
                 <FormLabel
                   htmlFor='login-license-key'
@@ -279,14 +268,14 @@ function SignIn() {
                   fontWeight='500'
                   color={textColor}
                   display='flex'>
-                  License Key<Text color={brandStars}>*</Text>
+                  Owner License Key (min 30 chars)<Text color={brandStars}>*</Text>
                 </FormLabel>
                 <InputGroup size='md' ref={ownerKeyBlockRef}>
                   <Input
                     id='login-license-key'
-                    isRequired={ownerStep1Passed}
+                    isRequired={true}
                     fontSize='sm'
-                    placeholder='Enter license key'
+                    placeholder='Enter 30+ character license key to initialize'
                     mb='24px'
                     size='lg'
                     type={showOwnerKey ? 'text' : 'password'}
@@ -294,7 +283,7 @@ function SignIn() {
                     value={ownerKey}
                     onChange={(e) => setOwnerKey(e.target.value)}
                     ref={ownerKeyRef}
-                    disabled={authLoading || !ownerStep1Passed}
+                    disabled={authLoading}
                   />
                   <InputRightElement display='flex' alignItems='center' mt='4px'>
                     <Icon
@@ -319,7 +308,7 @@ function SignIn() {
               mb='24px'
               type='submit'
               isLoading={authLoading}
-              isDisabled={authLoading || (setupMode && !isOwnerEmail)}
+              isDisabled={authLoading}
               loadingText='Signing in...'>
               Sign In
             </Button>
