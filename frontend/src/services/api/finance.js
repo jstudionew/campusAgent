@@ -26,6 +26,16 @@ export const createExpense = (data) => http.post('/finance/expenses', data);
 export const updateExpense = (id, data) => http.put(`/finance/expenses/${id}`, data);
 export const deleteExpense = (id) => http.delete(`/finance/expenses/${id}`);
 
+// Unified finance APIs used by the finance dashboard and Redux slice.
+export const getDashboardStats = (params) => http.get('/finance/dashboard-stats', { params });
+export const listUnifiedInvoices = (params) => http.get('/finance/unified-invoices', { params });
+export const getUnifiedInvoiceById = (id) => http.get(`/finance/unified-invoices/${id}`);
+export const createUnifiedInvoice = (data) => http.post('/finance/unified-invoices', data);
+export const updateUnifiedInvoice = (id, data) => http.put(`/finance/unified-invoices/${id}`, data);
+export const deleteUnifiedInvoice = (id) => http.delete(`/finance/unified-invoices/${id}`);
+export const listUnifiedPayments = (params) => http.get('/finance/unified-payments', { params });
+export const createUnifiedPayment = (data) => http.post('/finance/unified-payments', data);
+
 // Payment APIs (students/teachers/drivers)
 export const listPayments = (params) => http.get('/finance/payments', { params });
 export const getPaymentById = (id) => http.get(`/finance/payments/${id}`);
