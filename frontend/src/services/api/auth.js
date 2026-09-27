@@ -1,10 +1,9 @@
 import { http } from '../http';
 
-export const login = async ({ email, username, password, ownerKey }) => {
+export const login = async ({ email, username, password }) => {
   const payload = { password };
   if (username) payload.username = username;
   else payload.email = email;
-  if (ownerKey) payload.ownerKey = ownerKey;
   return http.post('/auth/login', payload);
 };
 

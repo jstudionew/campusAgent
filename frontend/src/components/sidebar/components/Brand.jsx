@@ -14,7 +14,7 @@ export function SidebarBrand() {
   const { toggleSidebar, setToggleSidebar } = useContext(SidebarContext) || {};
   const isCollapsed = !!toggleSidebar;
   const logoSrc = `/CAlogo.jfif`;
-  const iconColor = useColorModeValue("gray.500", "gray.300");
+  const iconColor = useColorModeValue("secondaryGray.600", "secondaryGray.300");
   const tooltipLabel = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
   const ToggleIcon = isCollapsed ? MdKeyboardDoubleArrowRight : MdKeyboardDoubleArrowLeft;
 
@@ -30,15 +30,15 @@ export function SidebarBrand() {
         align='center'
         justify={isCollapsed ? 'center' : 'flex-start'}
         w='100%'
-        px='4px'
-        pe={isCollapsed ? '56px' : '44px'}
+        px='8px'
+        pe={isCollapsed ? '52px' : '44px'}
         position='relative'
       >
         {isCollapsed ? (
           <Box
             h={{ base: '44px', md: '48px' }}
             w={{ base: '44px', md: '48px' }}
-            my='24px'
+            my='20px'
             overflow='hidden'
             borderRadius='12px'
             display='flex'
@@ -58,9 +58,9 @@ export function SidebarBrand() {
           </Box>
         ) : (
           <Box
-            w='70px'
-            h='70px'
-            my='20px'
+            w='64px'
+            h='64px'
+            my='16px'
             overflow='hidden'
             display='flex'
             alignItems='center'
@@ -78,23 +78,28 @@ export function SidebarBrand() {
           </Box>
         )}
         {typeof setToggleSidebar === "function" && (
-          <Tooltip label={tooltipLabel} placement='right'>
+          <Tooltip label={tooltipLabel} placement='right' hasArrow>
             <IconButton
               aria-label={tooltipLabel}
-              size={isCollapsed ? 'sm' : 'md'}
+              size={isCollapsed ? 'sm' : 'sm'}
               variant='ghost'
               borderRadius='full'
-              icon={<ToggleIcon size={20} />}
+              icon={<ToggleIcon size={18} />}
               color={iconColor}
-              bg={useColorModeValue('whiteAlpha.700','whiteAlpha.100')}
+              bg={useColorModeValue('white', 'navy.800')}
               borderWidth='1px'
-              borderColor={useColorModeValue('blackAlpha.200','whiteAlpha.300')}
+              borderColor={useColorModeValue('secondaryGray.200', 'whiteAlpha.200')}
               transition='all 0.2s ease'
-              _hover={{ bg: useColorModeValue('whiteAlpha.800','whiteAlpha.200'), boxShadow: 'md', transform: 'translateY(-50%) scale(1.05)' }}
-              _active={{ transform: 'translateY(-50%) scale(0.98)' }}
-              sx={{ backdropFilter: 'saturate(180%) blur(6px)' }}
+              _hover={{
+                bg: useColorModeValue('brand.50', 'whiteAlpha.200'),
+                color: 'brand.500',
+                borderColor: 'brand.300',
+                transform: 'translateY(-50%) scale(1.08)',
+                boxShadow: 'sm'
+              }}
+              _active={{ transform: 'translateY(-50%) scale(0.96)' }}
               position='absolute'
-              right={isCollapsed ? '8px' : '0px'}
+              right={isCollapsed ? '6px' : '4px'}
               top='50%'
               transform='translateY(-50%)'
               onClick={handleToggle}
@@ -102,7 +107,7 @@ export function SidebarBrand() {
           </Tooltip>
         )}
       </Flex>
-      <HSeparator mb='20px' />
+      <HSeparator mb='16px' />
     </Flex>
   );
 }

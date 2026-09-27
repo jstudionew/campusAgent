@@ -1,4 +1,8 @@
 import * as attendanceService from '../services/attendance.service.js';
+import * as studentsSvc from '../services/students.service.js';
+import * as parentsSvc from '../services/parents.service.js';
+import * as teachersSvc from '../services/teachers.service.js';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
 
 export const list = async (req, res, next) => {
   try {
@@ -17,6 +21,14 @@ export const getById = async (req, res, next) => {
   try {
     const row = await attendanceService.getById(req.params.id);
     if (!row) return res.status(404).json({ message: 'Record not found' });
+    const student = row.studentId ? await studentsSvc.getById(Number(row.studentId)) : null;
+    if (student && !assertResourceCampusAccess(req, student.campusId)) return res.status(404).json({ message: 'Record not found' });
+    if (req.user?.role === 'student' && row.studentId && Number(row.studentId) !== Number((await studentsSvc.getByUserId(req.user.id))?.id)) return res.status(404).json({ message: 'Record not found' });
+    if (req.user?.role === 'parent') {
+      const parent = await parentsSvc.getByUserId(req.user.id);
+      const child = student ? student : await studentsSvc.getById(Number(row.studentId));
+      if (!parent || !child || String(parent.familyNumber) !== String(child.familyNumber)) return res.status(404).json({ message: 'Record not found' });
+    }
     res.json(row);
   } catch (e) {
     next(e);
@@ -46,6 +58,10 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
+    const current = await attendanceService.getById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'Record not found' });
+    const student = current.studentId ? await studentsSvc.getById(Number(current.studentId)) : null;
+    if (student && !assertResourceCampusAccess(req, student.campusId)) return res.status(404).json({ message: 'Record not found' });
     const row = await attendanceService.update(req.params.id, req.body);
     if (!row) return res.status(404).json({ message: 'Record not found' });
     res.json(row);
@@ -56,6 +72,10 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
+    const current = await attendanceService.getById(req.params.id);
+    if (!current) return res.status(404).json({ message: 'Record not found' });
+    const student = current.studentId ? await studentsSvc.getById(Number(current.studentId)) : null;
+    if (student && !assertResourceCampusAccess(req, student.campusId)) return res.status(404).json({ message: 'Record not found' });
     await attendanceService.remove(req.params.id);
     res.json({ success: true });
   } catch (e) {

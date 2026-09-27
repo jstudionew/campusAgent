@@ -19,6 +19,7 @@ export default function AttendanceAnalytics() {
   const [selected, setSelected] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
 
   const summary = useMemo(() => {
     const present = mockClass.reduce((s, r) => s + r.present, 0);
@@ -114,7 +115,7 @@ export default function AttendanceAnalytics() {
               {filtered.map((r) => {
                 const overall = Math.round((r.present / r.totalDays) * 100);
                 return (
-                  <Tr key={r.class} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={r.class} _hover={{ bg: rowHoverBg }}>
                     <Td><Text fontWeight='600'>{r.class}</Text></Td>
                     <Td isNumeric><Badge colorScheme='green'>{r.present}</Badge></Td>
                     <Td isNumeric><Badge colorScheme='red'>{r.absent}</Badge></Td>

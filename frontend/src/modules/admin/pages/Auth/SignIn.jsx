@@ -17,19 +17,6 @@ export default function SignIn({ redirectTo = '/admin/dashboard' }) {
   // Use Auth Context for real login
   const { login: authLogin } = useAuth(); // Renamed to avoid confusion with internal function name if any
 
-  const roleCreds = {
-    admin: { email: 'campusagent', password: '0307' },
-    teacher: { email: 'teacher@jstudio.tech', password: 'password123' },
-    student: { email: 'student@jstudio.tech', password: 'password123' },
-    driver: { email: 'driver@jstudio.tech', password: 'password123' },
-  };
-
-  const fillRole = (role) => {
-    const c = roleCreds[role];
-    if (!c) return;
-    setEmail(c.email);
-    setPassword(c.password);
-  };
 
   const handleSignIn = async () => {
     if (!email || !password) {
@@ -65,18 +52,6 @@ export default function SignIn({ redirectTo = '/admin/dashboard' }) {
           <Heading size='lg' mb={1}>CampusAgent</Heading>
           <Text color={textColorSecondary} mb={6}>Manage. Connect. Automate. Grow.</Text>
 
-          <Card p={6} mb={6}>
-            <VStack align='stretch' spacing={3}>
-              <Text fontWeight='700'>Demo Credentials:</Text>
-              <Text color={textColorSecondary} fontSize='sm'>Click on a role to auto-fill credentials</Text>
-              <HStack spacing={2} wrap='wrap'>
-                <Badge as='button' onClick={() => fillRole('admin')} colorScheme='blue' px={3} py={1} borderRadius='full'>ADMIN</Badge>
-                <Badge as='button' onClick={() => fillRole('teacher')} colorScheme='green' px={3} py={1} borderRadius='full'>TEACHER</Badge>
-                <Badge as='button' onClick={() => fillRole('student')} colorScheme='purple' px={3} py={1} borderRadius='full'>STUDENT</Badge>
-                <Badge as='button' onClick={() => fillRole('driver')} colorScheme='orange' px={3} py={1} borderRadius='full'>DRIVER</Badge>
-              </HStack>
-            </VStack>
-          </Card>
 
           <Card maxW='560px' w='100%' p={8}>
             <VStack spacing={4} align='stretch'>

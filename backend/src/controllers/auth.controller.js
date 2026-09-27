@@ -5,38 +5,47 @@ import * as authService from '../services/auth.service.js';
 import { ensureParentsSchema, ensureAuthSchema, ensureCampusSchema } from '../db/autoMigrate.js';
 import * as parentsSvc from '../services/parents.service.js';
 import * as settingsSvc from '../services/settings.service.js';
+import { sanitizeUserResponse } from '../utils/privacy.js';
+import { appendAuditLog } from '../utils/audit.js';
 import {
   DEFAULT_ALLOWED_MODULES,
   DEFAULT_OWNER_EMAIL,
   DEFAULT_OWNER_NAME,
-  DEFAULT_OWNER_PASSWORD,
   OWNER_USERNAME,
 } from '../config/brand.js';
 
+export const resolveLicensingState = ({ configuredValue, allowedModulesValue, fallbackModules = DEFAULT_ALLOWED_MODULES } = {}) => {
+  let allowedModules = Array.isArray(fallbackModules) ? [...fallbackModules] : [];
+
+  if (allowedModulesValue !== undefined && allowedModulesValue !== null && String(allowedModulesValue).trim()) {
+    try {
+      const parsed = JSON.parse(String(allowedModulesValue));
+      if (Array.isArray(parsed) && parsed.length) allowedModules = parsed;
+    } catch (_) {
+      allowedModules = Array.isArray(fallbackModules) ? [...fallbackModules] : [];
+    }
+  }
+
+  return {
+    licensingConfigured: true,
+    allowedModules,
+  };
+};
+
 export const login = async (req, res, next) => {
   try {
-    const { email, username, password, ownerKey } = req.body;
+    const { email, username, password } = req.body;
     const ownerEmail = process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
-    const ownerPassword = process.env.OWNER_PASSWORD || DEFAULT_OWNER_PASSWORD;
     const ownerUsername = process.env.OWNER_USERNAME || OWNER_USERNAME;
-    const ownerKeyMin = Number(process.env.OWNER_KEY_MIN_LENGTH || 30);
     const loginIdent = String(email || username || '').toLowerCase().trim();
     const isOwnerIdent =
       loginIdent === String(ownerEmail).toLowerCase().trim() ||
       loginIdent === String(ownerUsername).toLowerCase().trim();
 
-    // Gate: disallow non-owner logins until licensing is configured
-    const force = String(process.env.FORCE_SETUP || '').toLowerCase() === 'true';
-    const lic = await settingsSvc.getByKey('licensing.configured');
-    let licensingConfigured = String(lic?.value || '').toLowerCase() === 'true';
-    if (force) licensingConfigured = true;
-    // Determine allowed modules/roles after licensing is configured
-    let allowedModules = [];
-    try {
-      const allowedRow = await settingsSvc.getByKey('licensing.allowed_modules');
-      allowedModules = JSON.parse(allowedRow?.value || '[]');
-    } catch (_) { allowedModules = []; }
-    if (force) { allowedModules = DEFAULT_ALLOWED_MODULES; }
+    const { allowedModules } = resolveLicensingState({
+      configuredValue: 'true',
+      allowedModulesValue: JSON.stringify(DEFAULT_ALLOWED_MODULES),
+    });
     const allowedRoles = new Set();
     if (Array.isArray(allowedModules)) {
       if (allowedModules.includes('Teachers')) allowedRoles.add('teacher');
@@ -54,40 +63,45 @@ export const login = async (req, res, next) => {
 
     // Owner-first: require correct password; owner key is step-2
     if (isOwnerIdent) {
-      // Ensure owner exists using configured password (NOT user-supplied)
+      // Ensure owner exists; if the owner password is unset in local/dev mode the bootstrap
+      // process will create a temporary password that is not shared in source code.
       let ownerUser = await authService.findUserByEmail(ownerEmail);
       if (!ownerUser) ownerUser = await authService.findUserByUsername(ownerUsername);
+      if (!ownerUser && process.env.NODE_ENV === 'production') {
+        return res.status(401).json({
+          success: false,
+          message: 'System Owner account is not configured.',
+          field: 'identifier',
+          code: 'USER_NOT_FOUND',
+        });
+      }
       if (!ownerUser) {
+        const tempPassword = process.env.OWNER_PASSWORD || 'dev-owner-temp-' + Math.random().toString(36).slice(2, 12);
         await authService.ensureOwnerUser({
           email: ownerEmail,
           username: ownerUsername,
-          password: ownerPassword,
+          password: tempPassword,
           name: DEFAULT_OWNER_NAME,
         });
         ownerUser = await authService.findUserByEmail(ownerEmail) || await authService.findUserByUsername(ownerUsername);
       }
-      if (!ownerUser) return res.status(401).json({ message: 'Invalid credentials' });
+      if (!ownerUser) {
+        return res.status(401).json({
+          success: false,
+          message: 'System Owner account is not configured.',
+          field: 'identifier',
+          code: 'USER_NOT_FOUND',
+        });
+      }
 
       const passOk = await bcrypt.compare(String(password || ''), ownerUser.password_hash || '');
-      if (!passOk) return res.status(401).json({ message: 'Invalid credentials' });
-
-      if (!force) {
-        const keyRow = await settingsSvc.getByKey('owner.key_hash');
-        const keyHash = keyRow?.value || '';
-        if (!keyHash) {
-          if (!ownerKey || String(ownerKey).length < ownerKeyMin) {
-            return res.status(401).json({ message: `Owner key not set. Provide a ${ownerKeyMin}+ character key to initialize.`, code: 'OWNER_KEY_REQUIRED' });
-          }
-          const newHash = await bcrypt.hash(String(ownerKey), 10);
-          await settingsSvc.setKey('owner.key_hash', newHash);
-          try {
-            await settingsSvc.setKey('licensing.configured', 'true');
-            await settingsSvc.setKey('licensing.allowed_modules', JSON.stringify(DEFAULT_ALLOWED_MODULES));
-          } catch (_) { }
-        } else if (ownerKey) {
-          const keyOk = await bcrypt.compare(String(ownerKey), keyHash);
-          if (!keyOk) return res.status(401).json({ message: 'Invalid owner key' });
-        }
+      if (!passOk) {
+        return res.status(401).json({
+          success: false,
+          message: 'Incorrect password for System Owner.',
+          field: 'password',
+          code: 'INVALID_PASSWORD',
+        });
       }
 
       const userPayload = {
@@ -100,13 +114,11 @@ export const login = async (req, res, next) => {
       };
       const token = signAccessToken(userPayload);
       const refreshToken = signRefreshToken({ id: ownerUser.id });
-      return res.json({ token, refreshToken, user: userPayload });
+      await appendAuditLog({ actorId: ownerUser.id, actorRole: 'owner', action: 'login', entityType: 'user', entityId: ownerUser.id, campusId: ownerUser.campus_id, details: { method: 'password' }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+      return res.json({ token, refreshToken, user: sanitizeUserResponse(userPayload, { actorRole: 'owner', actorId: ownerUser.id, targetId: ownerUser.id }) });
     }
 
-    // If licensing is not configured yet, block all non-owner logins
-    if (!licensingConfigured) {
-      return res.status(423).json({ message: 'System setup pending. Only owner can sign in until licensing is configured.' });
-    }
+    // Normal deployment: no first-run license gating
     // Strict auth: do not auto-provision users during login (including parent phone logins)
     // Accept either email or WhatsApp number in the "email" field for parents
     let user = null;
@@ -125,16 +137,32 @@ export const login = async (req, res, next) => {
         user = await authService.findUserByUsername(s);
       }
     }
-    if (!user) return res.status(401).json({ message: 'Invalid credentials' });
-    const ok = await bcrypt.compare(String(password || ''), user.password_hash || '');
-    if (!ok) return res.status(401).json({ message: 'Invalid credentials' });
-
-    // Enforce module-based licensing for roles other than owner
-    if (user.role !== 'owner' && allowedRoles.size && !allowedRoles.has(user.role)) {
-      return res.status(423).json({ message: 'Your role is not licensed for login on this installation.' });
+    if (!user) {
+      return res.status(401).json({
+        success: false,
+        message: 'No account found with this username, email, or phone number.',
+        field: 'identifier',
+        code: 'USER_NOT_FOUND',
+      });
     }
+
+    const ok = await bcrypt.compare(String(password || ''), user.password_hash || '');
+    if (!ok) {
+      return res.status(401).json({
+        success: false,
+        message: 'Incorrect password. Please verify and try again.',
+        field: 'password',
+        code: 'INVALID_PASSWORD',
+      });
+    }
+
     if (user.role === 'admin' && !user.campus_id) {
-      return res.status(403).json({ message: 'Admin account is not assigned to a campus' });
+      return res.status(403).json({
+        success: false,
+        message: 'Admin account is not assigned to a campus.',
+        field: 'campus',
+        code: 'CAMPUS_UNASSIGNED',
+      });
     }
 
     const userPayload = {
@@ -149,8 +177,9 @@ export const login = async (req, res, next) => {
     };
     const token = signAccessToken(userPayload);
     const refreshToken = signRefreshToken({ id: user.id });
+    await appendAuditLog({ actorId: user.id, actorRole: user.role, action: 'login', entityType: 'user', entityId: user.id, campusId: user.campus_id, details: { method: 'password' }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
 
-    return res.json({ token, refreshToken, user: userPayload });
+    return res.json({ token, refreshToken, user: sanitizeUserResponse(userPayload, { actorRole: user.role, actorId: user.id, targetId: user.id }) });
   } catch (e) {
     next(e);
   }
@@ -283,7 +312,9 @@ export const updateUser = async (req, res, next) => {
     const updated = await authService.updateUser(id, updates);
     if (!updated) return res.status(404).json({ message: 'User not found' });
 
-    return res.json(updated);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'user_update', entityType: 'user', entityId: id, campusId: req.user?.campusId, details: { updatedFields: Object.keys(updates) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+
+    return res.json(sanitizeUserResponse(updated, { actorRole: req.user?.role, actorId: req.user?.id, targetId: id }));
   } catch (e) {
     next(e);
   }
@@ -327,6 +358,8 @@ export const deleteUser = async (req, res, next) => {
 
     const deleted = await authService.deleteUser(id);
     if (!deleted) return res.status(404).json({ message: 'User not found' });
+
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'user_delete', entityType: 'user', entityId: id, campusId: req.user?.campusId, details: { targetRole: targetUser.role }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
 
     return res.json({ message: 'User deleted successfully' });
   } catch (e) {
@@ -584,18 +617,10 @@ export const backfillUsers = async (req, res, next) => {
 
 export const status = async (req, res, next) => {
   try {
-    const force = String(process.env.FORCE_SETUP || '').toLowerCase() === 'true';
-    const lic = await settingsSvc.getByKey('licensing.configured');
-    let licensingConfigured = String(lic?.value || '').toLowerCase() === 'true';
-    if (force) licensingConfigured = true;
-    let allowedModules = [];
-    try {
-      const allowedRow = await settingsSvc.getByKey('licensing.allowed_modules');
-      allowedModules = JSON.parse(allowedRow?.value || '[]');
-    } catch (_) { allowedModules = []; }
-    if (force && (!Array.isArray(allowedModules) || allowedModules.length === 0)) {
-      allowedModules = ['Dashboard', 'Settings', 'Teachers', 'Students', 'Parents', 'Transport'];
-    }
+    const { licensingConfigured, allowedModules } = resolveLicensingState({
+      configuredValue: 'true',
+      allowedModulesValue: JSON.stringify(DEFAULT_ALLOWED_MODULES),
+    });
     const { rows: adminRows } = await query('SELECT 1 FROM users WHERE role = $1 LIMIT 1', ['admin']);
     const adminExists = adminRows.length > 0;
     return res.json({ licensingConfigured, allowedModules, adminExists });

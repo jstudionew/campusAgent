@@ -1,11 +1,7 @@
-import React, { Suspense, useMemo } from 'react';
-import { Box, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
+import React, { useMemo } from 'react';
+import { Box, Text, useColorModeValue } from '@chakra-ui/react';
+import ReactApexChart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-
-const LazyApexChart: React.ComponentType<any> = React.lazy(async () => {
-  const mod: any = await import('react-apexcharts');
-  return { default: mod.default };
-}) as any;
 
 export type RadialAttendanceProps = {
   value: number;
@@ -44,9 +40,7 @@ export default function RadialAttendance({ value, height = 220, label, subtitle,
 
   return (
     <Box aria-label={ariaLabel || 'Radial'} role="img">
-      <Suspense fallback={<Skeleton h={`${height}px`} w="100%" borderRadius="md" />}>
-        <LazyApexChart options={options as any} series={series as any} type="radialBar" height={height} width="100%" />
-      </Suspense>
+      <ReactApexChart options={options as any} series={series as any} type="radialBar" height={height} width="100%" />
       {subtitle ? (
         <Text fontSize="xs" color={useColorModeValue('gray.600', 'gray.400')} mt={2}>
           {subtitle}

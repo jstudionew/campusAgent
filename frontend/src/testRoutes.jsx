@@ -1,29 +1,16 @@
-import React from 'react';
-import StudentListTest from './modules/students/StudentListTest';
-import BasicStudentList from './modules/students/BasicStudentList';
-import EnhancedStudentList from './modules/students/EnhancedStudentList';
-import AddStudent from './modules/students/AddStudent';
+import React, { lazy } from 'react';
 import StudentAttendance from './modules/students/StudentAttendance';
-import StudentPerformancePage from './modules/admin/pages/Students/StudentPerformancePage';
 import ErrorBoundary from './components/ErrorBoundary';
 import SidebarDemo from './components/sidebar/SidebarDemo';
-// The sidebar demo uses ChakraSidebar instead of the Tailwind version
 
-// Simple ComingSoon component
-const ComingSoon = () => (
-  <div style={{ 
-    display: 'flex', 
-    justifyContent: 'center', 
-    alignItems: 'center', 
-    height: '100vh',
-    fontSize: '24px',
-    color: '#666'
-  }}>
-    Page Under Development
-  </div>
-);
+// Real components instead of ComingSoon
+const EnhancedStudentList = lazy(() => import('./modules/students/EnhancedStudentList'));
+const AddStudent = lazy(() => import('./modules/students/AddStudent'));
+const StudentPerformancePage = lazy(() => import('./modules/admin/pages/Students/StudentPerformancePage'));
+const FeeRecordsPage = lazy(() => import('./modules/admin/pages/Students/FeeRecordsPage'));
+const TransportAssignmentPage = lazy(() => import('./modules/admin/pages/Students/TransportAssignmentPage'));
 
-// Direct routes configuration for testing
+// Direct routes configuration for testing and sub-features
 const testRoutes = [
   {
     path: '/admin/sidebar-demo',
@@ -47,11 +34,11 @@ const testRoutes = [
   },
   {
     path: '/admin/students/fees',
-    element: <ComingSoon />,
+    element: <ErrorBoundary><FeeRecordsPage /></ErrorBoundary>,
   },
   {
     path: '/admin/students/transport',
-    element: <ComingSoon />,
+    element: <ErrorBoundary><TransportAssignmentPage /></ErrorBoundary>,
   }
 ];
 

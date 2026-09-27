@@ -4,9 +4,9 @@ import { authenticate, authorize } from '../middleware/auth.js';
 
 const router = express.Router();
 
-// Only owner or superadmin can manage campuses
+// Owners/superadmins can manage campuses, while admins can view scoped campus data
 router.use(authenticate);
-router.use(authorize('owner', 'superadmin'));
+router.use(authorize('owner', 'superadmin', 'admin'));
 
 router.get('/', campusCtrl.list);
 router.get('/:id', campusCtrl.getById);

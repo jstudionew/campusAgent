@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as controller from '../controllers/exams.controller.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
@@ -9,6 +9,7 @@ const router = Router();
 router.get(
   '/',
   authenticate,
+  requirePermission('exams', 'view'),
   [
     query('q').optional().isString(),
     query('className').optional().isString(),
@@ -28,6 +29,7 @@ router.post(
   '/',
   authenticate,
   authorize('admin', 'teacher', 'owner'),
+  requirePermission('exams', 'create'),
   [
     body('title').isString().notEmpty(),
     body('examDate').optional().isISO8601(),
@@ -38,7 +40,7 @@ router.post(
   controller.create
 );
 
-router.put('/:id', authenticate, authorize('admin', 'teacher', 'owner'), [param('id').isInt()], validate, controller.update);
-router.delete('/:id', authenticate, authorize('admin', 'owner'), [param('id').isInt()], validate, controller.remove);
+router.put('/:id', authenticate, authorize('admin', 'teacher', 'owner'), requirePermission('exams', 'grade'), [param('id').isInt()], validate, controller.update);
+router.delete('/:id', authenticate, authorize('admin', 'owner'), requirePermission('exams', 'grade'), [param('id').isInt()], validate, controller.remove);
 
 export default router;

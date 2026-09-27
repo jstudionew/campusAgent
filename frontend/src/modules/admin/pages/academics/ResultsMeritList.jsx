@@ -324,7 +324,7 @@ export default function ResultsMeritList() {
 
       <Card p={4} mb={5}>
         <Flex gap={3} direction={{ base: 'column', md: 'row' }} align={{ md: 'center' }}>
-          <Select placeholder="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} maxW="260px" size="sm" isLoading={loadingExams}>
+          <Select placeholder="Exam" value={examId} onChange={(e) => setExamId(e.target.value)} maxW="260px" size="sm" isDisabled={loadingExams}>
             {exams.map((ex) => (
               <option key={ex.id} value={ex.id}>{ex.title || `Exam #${ex.id}`}</option>
             ))}

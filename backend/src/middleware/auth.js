@@ -1,6 +1,8 @@
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import * as settingsSvc from '../services/settings.service.js';
+import { DEFAULT_ROLE_PERMISSIONS } from '../services/rbac.service.js';
+import { getSecret } from '../utils/jwt.js';
 
 // ─── Roles hierarchy (higher index = higher privilege) ───
 const SYSTEM_LEVEL_ROLES = ['owner', 'superadmin'];
@@ -21,29 +23,40 @@ export const authenticate = async (req, res, next) => {
   const token = auth.startsWith('Bearer ') ? auth.slice(7) : null;
   if (!token) return res.status(401).json({ message: 'Unauthorized' });
   try {
-    const secret = process.env.JWT_SECRET || 'dev_jwt_secret';
+    const secret = getSecret('JWT_SECRET', 'local-dev-access-secret-change-me');
     const payload = jwt.verify(token, secret);
 
-    // Support campus override for administrators
     const campusHeader = req.headers['x-campus-id'];
-    if (campusHeader && (payload.role === 'owner' || payload.role === 'superadmin' || payload.role === 'admin')) {
-      const raw = String(campusHeader).trim();
-      if (raw.toLowerCase() === 'all') {
-        payload.campusId = null;
-      } else {
-        const parsed = Number(raw);
-        if (!Number.isNaN(parsed) && parsed > 0) {
-          payload.campusId = parsed;
-        } else if (raw) {
-          try {
-            const { rows } = await query(
-              'SELECT id FROM campuses WHERE LOWER(name) = LOWER($1) LIMIT 1',
-              [raw]
-            );
-            if (rows[0]?.id) payload.campusId = rows[0].id;
-          } catch (_) {}
-        }
+    const requestedCampusId = (async () => {
+      const raw = String(campusHeader || '').trim();
+      if (!raw || raw.toLowerCase() === 'all') return null;
+      const parsed = Number(raw);
+      if (!Number.isNaN(parsed) && parsed > 0) return parsed;
+      try {
+        const { rows } = await query(
+          'SELECT id FROM campuses WHERE LOWER(name) = LOWER($1) LIMIT 1',
+          [raw]
+        );
+        return rows[0]?.id ?? null;
+      } catch (_) {
+        return null;
       }
+    })();
+
+    const resolvedCampusId = await requestedCampusId;
+
+    if (campusHeader && (payload.role === 'owner' || payload.role === 'superadmin')) {
+      payload.campusId = resolvedCampusId ?? null;
+    } else if (campusHeader && payload.role === 'admin') {
+      if (payload.campusId && resolvedCampusId && Number(payload.campusId) !== Number(resolvedCampusId)) {
+        return res.status(403).json({ message: 'Forbidden: Access to this campus is not allowed for this admin account' });
+      }
+      if (resolvedCampusId && !payload.campusId) {
+        return res.status(403).json({ message: 'Forbidden: Campus context is not authorized for this admin account' });
+      }
+      payload.campusId = payload.campusId ?? null;
+    } else if (campusHeader && resolvedCampusId && payload.campusId && Number(payload.campusId) !== Number(resolvedCampusId)) {
+      return res.status(403).json({ message: 'Forbidden: Campus context does not match your authorized campus' });
     }
 
     req.user = payload;
@@ -91,6 +104,40 @@ export const requireSuperadminAccess = () => (req, res, next) => {
   next();
 };
 
+const parseRequestedCampusId = (req) => {
+  const raw = req.headers?.['x-campus-id'] ?? req.headers?.['x-campusid'] ?? req.query?.campusId ?? req.body?.campusId ?? req.params?.campusId;
+  if (raw === undefined || raw === null || raw === '') return null;
+  if (String(raw).trim().toLowerCase() === 'all') return null;
+  const parsed = Number(raw);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+};
+
+export const assertResourceCampusAccess = (req, resourceCampusId) => {
+  const role = req.user?.role;
+  const userCampus = req.user?.campusId == null ? null : Number(req.user.campusId);
+  const resourceCampus = resourceCampusId == null || resourceCampusId === '' ? null : Number(resourceCampusId);
+
+  if (role === 'owner' || role === 'superadmin') return true;
+  if (resourceCampus === null || Number.isNaN(resourceCampus)) return true;
+  if (userCampus === null || Number.isNaN(userCampus)) return false;
+  return Number(userCampus) === Number(resourceCampus);
+};
+
+export const getAuthorizedCampusId = (req) => {
+  const role = req.user?.role;
+  const userCampus = req.user?.campusId == null ? null : Number(req.user.campusId);
+  const requestedCampus = parseRequestedCampusId(req);
+
+  if (role === 'owner' || role === 'superadmin') return requestedCampus ?? null;
+  if (role === 'admin') return userCampus ?? null;
+
+  if (requestedCampus && userCampus && Number(requestedCampus) !== Number(userCampus)) {
+    return null;
+  }
+
+  return userCampus ?? null;
+};
+
 // ─── Campus Access Validation ───
 // Ensures the requesting user has access to the campus identified by req.params.campusId or req.body.campusId
 export const requireCampusAccess = () => (req, res, next) => {
@@ -112,6 +159,18 @@ export const requireCampusAccess = () => (req, res, next) => {
 // ─── Permission-Based Access ───
 // Checks if the user's role has the required permission (e.g. 'students.view', 'finance.edit')
 // Owner and superadmin bypass permission checks
+export const getRolePermissions = async (role) => {
+  try {
+    const item = await settingsSvc.getByKey(`perms.${role}`);
+    if (item?.value) {
+      const parsed = JSON.parse(item.value);
+      if (Array.isArray(parsed)) return parsed;
+    }
+  } catch (_) {}
+
+  return Array.isArray(DEFAULT_ROLE_PERMISSIONS[role]) ? DEFAULT_ROLE_PERMISSIONS[role] : [];
+};
+
 export const requirePermission = (module, action) => async (req, res, next) => {
   const role = req.user?.role;
   if (!role) return res.status(403).json({ message: 'Forbidden' });
@@ -121,8 +180,7 @@ export const requirePermission = (module, action) => async (req, res, next) => {
 
   const permKey = `${module}.${action}`;
   try {
-    const item = await settingsSvc.getByKey(`perms.${role}`);
-    const perms = item ? JSON.parse(item.value) : [];
+    const perms = await getRolePermissions(role);
     if (Array.isArray(perms) && perms.includes(permKey)) {
       return next();
     }
@@ -190,4 +248,13 @@ export const canManageRole = (managerRole, targetRole) => {
   }
   // Staff and end-users cannot manage anyone
   return false;
+};
+
+export const canDelegatePermission = async (managerRole, permission) => {
+  if (!managerRole || !permission) return false;
+  if (managerRole === 'owner') return true;
+  if (managerRole === 'superadmin') return permission !== 'licensing.manage';
+
+  const perms = await getRolePermissions(managerRole);
+  return Array.isArray(perms) && perms.includes(permission);
 };

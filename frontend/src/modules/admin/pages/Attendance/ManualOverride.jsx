@@ -32,6 +32,7 @@ export default function ManualOverride() {
   const { loading: authLoading, isAuthenticated, user } = useAuth();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const headerBg = useColorModeValue('gray.50', 'gray.800');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
   const canEdit = (user?.role === 'admin');
 
   const [date, setDate] = useState(() => new Date().toISOString().slice(0, 10));
@@ -46,22 +47,6 @@ export default function ManualOverride() {
   const [sectionOptions, setSectionOptions] = useState([]);
   const fetchingRef = useRef(false);
 
-  // Load dropdown options
-  useEffect(() => {
-    const loadOptions = async () => {
-      try {
-        const payload = await studentsApi.list({ pageSize: 200 });
-        const rows = Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload) ? payload : []);
-        const classes = Array.from(new Set((rows || []).map((s) => s.class).filter(Boolean)));
-        const sections = Array.from(new Set((rows || []).map((s) => s.section).filter(Boolean)));
-        setClassOptions(classes);
-        setSectionOptions(sections);
-      } catch (_) {}
-    };
-    if (!authLoading && isAuthenticated) loadOptions();
-  }, [authLoading, isAuthenticated]);
-
-  // Load list for selected date/class/section
   const loadDaily = async () => {
     if (fetchingRef.current) return;
     fetchingRef.current = true;
@@ -84,9 +69,23 @@ export default function ManualOverride() {
     }
   };
 
+  // Load dropdown options
+  useEffect(() => {
+    const loadOptions = async () => {
+      try {
+        const payload = await studentsApi.list({ pageSize: 200 });
+        const rows = Array.isArray(payload?.rows) ? payload.rows : (Array.isArray(payload) ? payload : []);
+        const classes = Array.from(new Set((rows || []).map((s) => s.class).filter(Boolean)));
+        const sections = Array.from(new Set((rows || []).map((s) => s.section).filter(Boolean)));
+        setClassOptions(classes);
+        setSectionOptions(sections);
+      } catch (_) {}
+    };
+    if (!authLoading && isAuthenticated) loadOptions();
+  }, [authLoading, isAuthenticated]);
+
   useEffect(() => {
     if (!authLoading && isAuthenticated) loadDaily();
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [authLoading, isAuthenticated, date, cls, section]);
 
   const stats = useMemo(() => {
@@ -202,7 +201,7 @@ export default function ManualOverride() {
             </Thead>
             <Tbody>
               {items.map((s) => (
-                <Tr key={s.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={s.id} _hover={{ bg: rowHoverBg }}>
                   <Td>
                     <Text fontWeight='600'>{s.name}</Text>
                     <Text fontSize='xs' color={textColorSecondary}>{s.email}</Text>

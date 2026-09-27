@@ -8,7 +8,7 @@ import url from 'url';
 import { pool, ensureAppDatabaseExists } from './config/db.js';
 import { ensureAuthSchema, ensureCampusSchema, ensureCardManagementSchema, ensureCertificatesSchema, ensureClassSectionsSchema, ensureExamResultsSchema, ensureMasterDataSchema, ensurePayrollSchema, ensureSharedContentSchema, ensureTeachersNameColumn, ensureCoreTableColumns, ensureRBACSchema } from './db/autoMigrate.js';
 import { initDb } from './models/index.js';
-import { DEFAULT_OWNER_EMAIL, DEFAULT_OWNER_NAME, DEFAULT_OWNER_PASSWORD, OWNER_USERNAME } from './config/brand.js';
+import { DEFAULT_OWNER_EMAIL, DEFAULT_OWNER_NAME, OWNER_USERNAME } from './config/brand.js';
 
 loadEnv();
 
@@ -124,6 +124,9 @@ async function ensureBaseSchema() {
 
 
 async function boot() {
+  if (globalThis.__smsBootStarted) return;
+  globalThis.__smsBootStarted = true;
+
   const server = http.createServer(app);
   const start = (p) => {
     port = p;
@@ -147,8 +150,6 @@ async function boot() {
   });
   start(port);
 
-  // Run database init tasks in the background so /health becomes reachable immediately.
-  // This avoids Electron timing out on slower/unreachable Postgres.
   const withTimeout = async (label, fn, ms) => {
     const timeoutMs = Number(ms) || 20000;
     return await Promise.race([
@@ -167,18 +168,15 @@ async function boot() {
     ]);
   };
 
-  (async () => {
+  try {
     await withTimeout('DB ensure database', () => ensureAppDatabaseExists(), Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 15000);
     await withTimeout('DB campus schema', () => ensureCampusSchema(), Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 20000);
-    //
-    // Normalize legacy teachers schema before applying schema.sql (schema.sql assumes JSONB)
-    //
     await withTimeout('DB teachers schema preflight', () => ensureTeachersNameColumn(), Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 30000);
     await withTimeout('DB base schema', () => ensureBaseSchema(), Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 20000);
     await withTimeout('DB auto-migration', async () => {
       await ensureAuthSchema();
-      await ensureCoreTableColumns(); // Fix: add all missing columns to core tables (students, buses, alerts, etc.)
-      await ensureTeachersNameColumn(); // Fix: add missing 'name' + all HR columns to teachers table
+      await ensureCoreTableColumns();
+      await ensureTeachersNameColumn();
       await ensureCampusSchema();
       await ensureCardManagementSchema();
       await ensureCertificatesSchema();
@@ -192,16 +190,26 @@ async function boot() {
     await withTimeout('Sequelize init', () => initDb(), Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 60000);
 
     await withTimeout('Ensure owner user', async () => {
-      // Always ensure auth schema (password_hash column, etc.) before writing the owner user,
-      // in case the earlier auto-migration block timed out before completing.
       await ensureAuthSchema();
       const ownerEmail = process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
-      const ownerPassword = process.env.OWNER_PASSWORD || DEFAULT_OWNER_PASSWORD;
       const ownerName = process.env.OWNER_NAME || DEFAULT_OWNER_NAME;
       const ownerUsername = process.env.OWNER_USERNAME || OWNER_USERNAME;
-      await authService.ensureOwnerUser({ email: ownerEmail, username: ownerUsername, password: ownerPassword, name: ownerName });
+      const ownerPassword = process.env.OWNER_PASSWORD;
+
+      if (!ownerPassword && process.env.NODE_ENV === 'production') {
+        throw new Error('Missing required production env: OWNER_PASSWORD');
+      }
+
+      if (!ownerPassword) {
+        console.warn('[bootstrap] OWNER_PASSWORD was not set. A development-only temporary owner password will be generated and stored securely. Set OWNER_PASSWORD to avoid an unpredictable bootstrap password.');
+      }
+
+      const passwordToUse = ownerPassword || 'dev-owner-temp-' + Math.random().toString(36).slice(2, 12);
+      await authService.ensureOwnerUser({ email: ownerEmail, username: ownerUsername, password: passwordToUse, name: ownerName });
     }, Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 45000);
-  })();
+  } catch (e) {
+    console.error('[bootstrap] fatal startup error:', e?.stack || e);
+  }
 }
 
 boot();

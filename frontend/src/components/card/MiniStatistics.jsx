@@ -1,5 +1,3 @@
-// Chakra imports
-// Chakra imports
 import {
   Flex,
   Stat,
@@ -9,10 +7,8 @@ import {
   Text,
   Box,
 } from "@chakra-ui/react";
-// Custom components
 import Card from "components/card/Card.js";
 import Sparkline from "components/charts/Sparkline.tsx";
-// Custom icons
 import React from "react";
 
 export default function Default(props) {
@@ -22,7 +18,6 @@ export default function Default(props) {
     name,
     growth,
     value,
-    // optional mini graph data for percentage cards
     trendData,
     trendColor,
     trendFormatter,
@@ -30,21 +25,22 @@ export default function Default(props) {
   } = props;
 
   const textColor = useColorModeValue("secondaryGray.900", "white");
-  const textColorSecondary = "secondaryGray.600";
+  const textColorSecondary = useColorModeValue("secondaryGray.500", "secondaryGray.400");
   const hoverShadow = useColorModeValue(
-    "0 12px 30px rgba(15, 23, 42, 0.10)",
-    "0 12px 30px rgba(15, 23, 42, 0.65)"
+    "0 12px 30px rgba(37, 99, 235, 0.12)",
+    "0 14px 35px rgba(0, 0, 0, 0.65)"
   );
+
+  const isNegativeGrowth = typeof growth === 'string' && growth.trim().startsWith('-');
 
   return (
     <Card
       py={compact ? { base: '12px', md: '14px' } : '18px'}
       cursor='pointer'
-      transition='all 0.2s ease'
-      _hover={{ boxShadow: hoverShadow, transform: "translateY(-2px)" }}
-      _active={{ boxShadow: hoverShadow, transform: "translateY(0px)" }}
+      transition='all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
+      _hover={{ boxShadow: hoverShadow, transform: "translateY(-3px)" }}
+      _active={{ transform: "translateY(0px)" }}
     >
-      {/* Top row: icon + main value on the left, growth text on the right */}
       <Flex
         my='auto'
         w='100%'
@@ -59,12 +55,12 @@ export default function Default(props) {
 
           <Stat my='auto' ms={startContent ? "4px" : "0px"} minW='0'>
             <StatLabel
-              lineHeight='100%'
-              color={textColor}
+              lineHeight='120%'
+              color={textColorSecondary}
               fontWeight='600'
               fontSize={{
-                base: "sm",
-                md: "md",
+                base: "xs",
+                md: "sm",
               }}
               noOfLines={1}
             >
@@ -72,9 +68,11 @@ export default function Default(props) {
             </StatLabel>
             <StatNumber
               color={textColor}
+              fontWeight='700'
               fontSize={{
-                base: "2xl",
-                md: "3xl",
+                base: "xl",
+                md: "2xl",
+                lg: "3xl",
               }}
             >
               {value}
@@ -89,10 +87,14 @@ export default function Default(props) {
             ms='auto'
             minW='max-content'
           >
-            <Text color='green.500' fontSize='sm' fontWeight='700'>
+            <Text
+              color={isNegativeGrowth ? 'red.500' : 'green.500'}
+              fontSize='sm'
+              fontWeight='700'
+            >
               {growth}
             </Text>
-            <Text color='secondaryGray.600' fontSize='xs' fontWeight='400' display={{ base: 'none', md: 'block' }}>
+            <Text color={textColorSecondary} fontSize='xs' fontWeight='500' display={{ base: 'none', md: 'block' }}>
               since last month
             </Text>
           </Flex>
@@ -101,13 +103,12 @@ export default function Default(props) {
         )}
       </Flex>
 
-      {/* Bottom row: full-width sparkline graph */}
       {trendData && trendData.length > 0 && (
         <Box w='100%' h={compact ? '36px' : '48px'} mt={compact ? 3 : 4}>
           <Sparkline
             ariaLabel={`${name || 'Metric'} trend`}
             data={trendData}
-            color={trendColor}
+            color={trendColor || "#2563EB"}
             height={compact ? 36 : 48}
             type="line"
             valueFormatter={trendFormatter}

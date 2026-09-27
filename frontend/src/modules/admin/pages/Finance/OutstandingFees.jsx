@@ -15,6 +15,8 @@ import { useFinanceUsers, useOutstandingFees } from '../../../../hooks/useFinanc
 export default function OutstandingFees() {
   const toast = useToast();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const tableHeaderBg = useColorModeValue('gray.50', 'gray.800');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
 
   // State
   const [roleFilter, setRoleFilter] = useState('all');
@@ -141,7 +143,7 @@ export default function OutstandingFees() {
         <Box overflowX='auto'>
           <Box maxH='500px' overflowY='auto'>
             <Table size='sm' variant='simple'>
-              <Thead position='sticky' top={0} zIndex={1} bg={useColorModeValue('gray.50', 'gray.800')}>
+              <Thead position='sticky' top={0} zIndex={1} bg={tableHeaderBg}>
                 <Tr>
                   <Th>Invoice</Th>
                   <Th>Type</Th>
@@ -158,7 +160,7 @@ export default function OutstandingFees() {
                 {filtered.length === 0 ? (
                   <Tr><Td colSpan={9} textAlign="center" py={8} color="gray.500">No outstanding fees found</Td></Tr>
                 ) : filtered.map((o) => (
-                  <Tr key={o.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={o.id} _hover={{ bg: rowHoverBg }}>
                     <Td><Text fontWeight='600'>{o.invoiceNumber}</Text></Td>
                     <Td>
                       <Badge colorScheme={o.userType === 'student' ? 'blue' : o.userType === 'teacher' ? 'green' : 'orange'}>

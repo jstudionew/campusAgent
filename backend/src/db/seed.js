@@ -6,7 +6,6 @@ import {
   DEFAULT_ALLOWED_MODULES,
   DEFAULT_OWNER_EMAIL,
   DEFAULT_OWNER_NAME,
-  DEFAULT_OWNER_PASSWORD,
   OWNER_USERNAME,
 } from '../config/brand.js';
 
@@ -22,11 +21,19 @@ async function seed() {
 
     // Ensure Super Admin / Owner account exists with desired credentials
     const ownerEmail = process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
-    const ownerPassword = process.env.OWNER_PASSWORD || DEFAULT_OWNER_PASSWORD;
+    const ownerPassword = process.env.OWNER_PASSWORD;
     const ownerName = process.env.OWNER_NAME || DEFAULT_OWNER_NAME;
     const ownerUsername = process.env.OWNER_USERNAME || OWNER_USERNAME;
+
+    if (!ownerPassword && process.env.NODE_ENV === 'production') {
+      throw new Error('Missing required production env: OWNER_PASSWORD');
+    }
+
+    if (!ownerPassword) {
+      console.warn('[seed] OWNER_PASSWORD not set; using a development-only temporary password. Set OWNER_PASSWORD to avoid a bootstrap password drift.');
+    }
     {
-      const ownerHash = await bcrypt.hash(ownerPassword, 10);
+      const ownerHash = await bcrypt.hash(ownerPassword || 'dev-owner-temp-' + Math.random().toString(36).slice(2, 12), 10);
       const { rows: existingOwner } = await client.query(
         `SELECT id FROM users
          WHERE LOWER(email) = LOWER($1)
@@ -51,30 +58,7 @@ async function seed() {
       }
     }
 
-    // Seed owner.key_hash in settings using provided licensed key (store only hash)
-    {
-      const plainKey = String(process.env.OWNER_LICENSE_KEY || process.env.LICENSE_KEY || 'a9F3XK2dP7R8MZL5H0eQJ6C4bWmTNYVUsA1kEGi');
-      const hash = await bcrypt.hash(plainKey, 10);
-      await client.query(
-        `INSERT INTO settings (key, value, updated_at)
-         VALUES ($1,$2,NOW())
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        ['owner.key_hash', hash]
-      );
-      await client.query(
-        `INSERT INTO settings (key, value, updated_at)
-         VALUES ($1,$2,NOW())
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        ['licensing.configured', 'true']
-      );
-      await client.query(
-        `INSERT INTO settings (key, value, updated_at)
-         VALUES ($1,$2,NOW())
-         ON CONFLICT (key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW()`,
-        ['licensing.allowed_modules', JSON.stringify(DEFAULT_ALLOWED_MODULES)]
-      );
-      console.log('Seeded owner.key_hash and licensing settings');
-    }
+    // No first-run licensing configuration is required for normal deployments
 
     // Create demo users if not exists
     const usersToSeed = [
@@ -87,11 +71,11 @@ async function seed() {
       if (!existing.length) {
         const hash = await bcrypt.hash(u.password, 10);
         await client.query('INSERT INTO users (username, email, password_hash, role, name) VALUES ($1,$2,$3,$4,$5)', [u.username, u.email, hash, u.role, u.name]);
-        console.log('Seeded user:', u.email, 'password:', u.password);
+        console.log('Seeded demo user:', u.email, 'role:', u.role);
       } else {
         // Ensure username set for existing row
         await client.query('UPDATE users SET username = COALESCE(username, $2) WHERE id = $1', [existing[0].id, u.username]);
-        console.log('User already exists:', u.email);
+        console.log('Demo user already exists:', u.email);
       }
     }
 

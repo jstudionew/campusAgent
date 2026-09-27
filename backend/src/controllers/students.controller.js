@@ -6,6 +6,9 @@ import { ensureAuthSchema, ensureStudentExtendedColumns, ensureFinanceConstraint
 import * as parentsSvc from '../services/parents.service.js';
 import { upsertParentUserForPhone } from '../services/auth.service.js';
 import * as teachersSvc from '../services/teachers.service.js';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
+import { sanitizeStudentResponse } from '../utils/privacy.js';
+import { appendAuditLog } from '../utils/audit.js';
 
 export const list = async (req, res, next) => {
   try {
@@ -45,7 +48,10 @@ export const list = async (req, res, next) => {
       campusId,
       allowedClassSections
     });
-    return res.json(result);
+    const rows = Array.isArray(result?.rows)
+      ? result.rows.map((row) => sanitizeStudentResponse(row, { actorRole: req.user?.role, actorId: req.user?.id, targetId: row.id, relatedParent: req.user?.role === 'parent' }))
+      : [];
+    return res.json({ ...result, rows });
   } catch (e) { next(e); }
 };
 
@@ -60,6 +66,13 @@ export const getById = async (req, res, next) => {
     const student = await students.getById(Number(req.params.id));
     if (!student) return res.status(404).json({ message: 'Student not found' });
 
+    if (req.user?.role === 'parent') {
+      const parent = await parentsSvc.getByUserId(req.user.id);
+      if (!parent || String(parent.familyNumber) !== String(student.familyNumber)) return res.status(404).json({ message: 'Student not found' });
+    }
+
+    if (!assertResourceCampusAccess(req, student.campusId)) return res.status(404).json({ message: 'Student not found' });
+
     // Teacher: only allow access to students in teacher's scheduled classes/sections
     if (req.user?.role === 'teacher') {
       const scopes = await teachersSvc.getTeachingScopesByUserId(req.user.id);
@@ -72,7 +85,7 @@ export const getById = async (req, res, next) => {
       if (!ok) return res.status(403).json({ message: 'Forbidden' });
     }
 
-    return res.json(student);
+    return res.json(sanitizeStudentResponse(student, { actorRole: req.user?.role, actorId: req.user?.id, targetId: student.id, relatedParent: req.user?.role === 'parent' }));
   } catch (e) { next(e); }
 };
 
@@ -153,13 +166,22 @@ export const create = async (req, res, next) => {
 
     const created = await students.create(payload);
     const resp = credentials ? { ...created, credentials } : created;
-    return res.status(201).json(resp);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'student_create', entityType: 'student', entityId: created?.id, campusId: req.user?.campusId || payload.campusId, details: { hasCredentials: Boolean(credentials) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    return res.status(201).json(sanitizeStudentResponse(resp, { actorRole: req.user?.role, actorId: req.user?.id, targetId: created?.id, relatedParent: false }));
   } catch (e) { next(e); }
 };
 
 export const update = async (req, res, next) => {
   try {
     await ensureStudentExtendedColumns();
+    const existing = await students.getById(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: 'Student not found' });
+    if (req.user?.role === 'parent') {
+      const parent = await parentsSvc.getByUserId(req.user.id);
+      if (!parent || String(parent.familyNumber) !== String(existing.familyNumber)) return res.status(404).json({ message: 'Student not found' });
+    }
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Student not found' });
+
     const data = { ...req.body };
 
     if (!data.avatar) {
@@ -192,14 +214,23 @@ export const update = async (req, res, next) => {
 
     const updated = await students.update(Number(req.params.id), data);
     if (!updated) return res.status(404).json({ message: 'Student not found' });
-    return res.json(updated);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'student_update', entityType: 'student', entityId: updated?.id, campusId: req.user?.campusId || existing.campusId, details: { changedFields: Object.keys(data) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    return res.json(sanitizeStudentResponse(updated, { actorRole: req.user?.role, actorId: req.user?.id, targetId: updated.id, relatedParent: req.user?.role === 'parent' }));
   } catch (e) { next(e); }
 };
 
 export const remove = async (req, res, next) => {
   try {
+    const existing = await students.getById(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: 'Student not found' });
+    if (req.user?.role === 'parent') {
+      const parent = await parentsSvc.getByUserId(req.user.id);
+      if (!parent || String(parent.familyNumber) !== String(existing.familyNumber)) return res.status(404).json({ message: 'Student not found' });
+    }
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Student not found' });
     const ok = await students.remove(Number(req.params.id));
     if (!ok) return res.status(404).json({ message: 'Student not found' });
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'student_delete', entityType: 'student', entityId: existing.id, campusId: existing.campusId, details: { removedBy: req.user?.role }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
     return res.json({ success: true });
   } catch (e) { next(e); }
 };

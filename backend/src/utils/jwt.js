@@ -1,16 +1,26 @@
+import crypto from 'crypto';
 import jwt from 'jsonwebtoken';
 
+export const getSecret = (name, devFallback) => {
+  const value = process.env[name];
+  if (value && String(value).trim()) return value;
+  if (process.env.NODE_ENV === 'production') {
+    throw new Error(`Missing required production environment variable: ${name}`);
+  }
+  return devFallback || crypto.randomBytes(32).toString('hex');
+};
+
 export const signAccessToken = (payload, options = {}) => {
-  const secret = process.env.JWT_SECRET || 'dev_jwt_secret';
+  const secret = getSecret('JWT_SECRET', 'local-dev-access-secret-change-me');
   const expiresIn = process.env.JWT_EXPIRES_IN || '15m';
   return jwt.sign(payload, secret, { expiresIn, ...options });
 };
 
 export const signRefreshToken = (payload, options = {}) => {
-  const secret = process.env.REFRESH_SECRET || 'dev_refresh_secret';
+  const secret = getSecret('REFRESH_SECRET', 'local-dev-refresh-secret-change-me');
   const expiresIn = process.env.REFRESH_EXPIRES_IN || '7d';
   return jwt.sign(payload, secret, { expiresIn, ...options });
 };
 
-export const verifyAccessToken = (token) => jwt.verify(token, process.env.JWT_SECRET || 'dev_jwt_secret');
-export const verifyRefreshToken = (token) => jwt.verify(token, process.env.REFRESH_SECRET || 'dev_refresh_secret');
+export const verifyAccessToken = (token) => jwt.verify(token, getSecret('JWT_SECRET', 'local-dev-access-secret-change-me'));
+export const verifyRefreshToken = (token) => jwt.verify(token, getSecret('REFRESH_SECRET', 'local-dev-refresh-secret-change-me'));

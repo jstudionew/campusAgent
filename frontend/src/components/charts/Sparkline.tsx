@@ -1,11 +1,7 @@
-import React, { Suspense, useMemo } from 'react';
-import { Box, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
+import React, { useMemo } from 'react';
+import { Box, Text, useColorModeValue } from '@chakra-ui/react';
+import ReactApexChart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-
-const LazyApexChart: React.ComponentType<any> = React.lazy(async () => {
-  const mod: any = await import('react-apexcharts');
-  return { default: mod.default };
-}) as any;
 
 export type SparklineProps = {
   data: number[];
@@ -65,9 +61,7 @@ export default function Sparkline({ data, height = 40, color, ariaLabel, valueFo
 
   return (
     <Box aria-label={ariaLabel || 'Sparkline'} role="img">
-      <Suspense fallback={<Skeleton h={`${height}px`} w="100%" borderRadius="md" />}> 
-        <LazyApexChart options={options as any} series={series as any} type={type} height={height} width="100%" />
-      </Suspense>
+      <ReactApexChart options={options as any} series={series as any} type={type} height={height} width="100%" />
       <noscript>Trend chart unavailable without JavaScript.</noscript>
     </Box>
   );

@@ -257,7 +257,7 @@ export default function ResultsGenerate() {
           <Select placeholder='Section' value={section} onChange={(e)=> setSection(e.target.value)} w='140px' size='sm' isDisabled={!cls}>
             {(sectionsByClass[cls] || []).map(s => <option key={s} value={s}>{s}</option>)}
           </Select>
-          <Select placeholder='Exam' value={examId} onChange={(e)=> setExamId(e.target.value)} w='220px' size='sm' isLoading={loadingExams}>
+          <Select placeholder='Exam' value={examId} onChange={(e)=> setExamId(e.target.value)} w='220px' size='sm' isDisabled={loadingExams}>
             {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.title || `Exam #${ex.id}`}</option>)}
           </Select>
           <Input placeholder='Subject (optional)' value={subject} onChange={(e)=> setSubject(e.target.value)} w='220px' size='sm' />

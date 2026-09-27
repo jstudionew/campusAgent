@@ -12,7 +12,7 @@ import {
   // Add other needed models
 } from '../models/index.js';
 import { Sequelize } from 'sequelize';
-import { authenticate } from '../middleware/auth.js';
+import { authenticate, requirePermission } from '../middleware/auth.js';
 import * as reportsController from '../controllers/reports.controller.js';
 import { query } from '../config/db.js';
 
@@ -21,16 +21,16 @@ const router = Router();
 router.use(authenticate);
 
 // Endpoints used by frontend src/services/api/reports.js
-router.get('/overview', reportsController.overview);
-router.get('/attendance-summary', reportsController.attendanceSummary);
-router.get('/finance-summary', reportsController.financeSummary);
-router.get('/finance-by-class', reportsController.financeByClass);
-router.get('/finance-by-head', reportsController.financeByHead);
-router.get('/finance-payment-methods', reportsController.financePaymentMethods);
-router.get('/finance-overdue-buckets', reportsController.financeOverdueBuckets);
-router.get('/exam-performance', reportsController.examPerformance);
-router.get('/attendance-by-class', reportsController.attendanceByClass);
-router.get('/attendance-heatmap', reportsController.attendanceHeatmap);
+router.get('/overview', requirePermission('reports', 'view'), reportsController.overview);
+router.get('/attendance-summary', requirePermission('reports', 'view'), reportsController.attendanceSummary);
+router.get('/finance-summary', requirePermission('finance', 'view'), reportsController.financeSummary);
+router.get('/finance-by-class', requirePermission('finance', 'view'), reportsController.financeByClass);
+router.get('/finance-by-head', requirePermission('finance', 'view'), reportsController.financeByHead);
+router.get('/finance-payment-methods', requirePermission('finance', 'view'), reportsController.financePaymentMethods);
+router.get('/finance-overdue-buckets', requirePermission('finance', 'view'), reportsController.financeOverdueBuckets);
+router.get('/exam-performance', requirePermission('marks', 'view'), reportsController.examPerformance);
+router.get('/attendance-by-class', requirePermission('attendance', 'view'), reportsController.attendanceByClass);
+router.get('/attendance-heatmap', requirePermission('attendance', 'view'), reportsController.attendanceHeatmap);
 
 // Helper to get campus query
 const getCampusQuery = (req) => {

@@ -70,6 +70,42 @@ export default defineConfig({
       ? path.resolve(__dirname, process.env.VITE_OUT_DIR)
       : path.resolve(__dirname, '../dist'), // Output directory for build
     emptyOutDir: true,
+    chunkSizeWarningLimit: 2000,
+    rollupOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) {
+            return undefined;
+          }
+
+          if (id.includes('react-apexcharts') || id.includes('apexcharts')) {
+            return 'charts';
+          }
+
+          if (id.includes('@chakra-ui')) {
+            return 'chakra';
+          }
+
+          if (id.includes('react-router') || id.includes('/react-dom/') || id.includes('/react/')) {
+            return 'react-vendor';
+          }
+
+          if (id.includes('html2canvas')) {
+            return 'html2canvas';
+          }
+
+          if (id.includes('lodash') || id.includes('date-fns') || id.includes('uuid') || id.includes('nanoid')) {
+            return 'utils';
+          }
+
+          if (id.includes('jspdf') || id.includes('pdf-lib') || id.includes('pdfjs')) {
+            return 'pdf';
+          }
+
+          return 'vendor';
+        },
+      },
+    },
   },
   optimizeDeps: {
     esbuildOptions: {

@@ -38,6 +38,12 @@ export type DashboardShellProps = {
 function SidebarContent({ navItems }: { navItems: DashboardNavItem[] }) {
   const bg = useColorModeValue('white', 'gray.900');
   const borderColor = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const itemHoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
+  const itemIconColor = useColorModeValue('gray.600', 'gray.300');
+  const itemTextColor = useColorModeValue('gray.700', 'gray.200');
+  const emailColor = useColorModeValue('gray.600', 'gray.400');
+  const searchIconColor = useColorModeValue('gray.400', 'gray.500');
+  const searchBg = useColorModeValue('gray.50', 'whiteAlpha.100');
 
   return (
     <Box bg={bg} w={{ base: 'full', lg: '280px' }} h="full" borderRightWidth="1px" borderColor={borderColor} px={4} py={5}>
@@ -54,12 +60,12 @@ function SidebarContent({ navItems }: { navItems: DashboardNavItem[] }) {
               px={3}
               py={2}
               borderRadius="md"
-              _hover={{ bg: useColorModeValue('gray.50', 'whiteAlpha.100') }}
+              _hover={{ bg: itemHoverBg }}
               cursor="pointer"
               onClick={item.onClick}
             >
-              {item.icon ? <Icon as={item.icon} color={useColorModeValue('gray.600', 'gray.300')} /> : null}
-              <Text fontWeight={600} fontSize="sm" color={useColorModeValue('gray.700', 'gray.200')}>
+              {item.icon ? <Icon as={item.icon} color={itemIconColor} /> : null}
+              <Text fontWeight={600} fontSize="sm" color={itemTextColor}>
                 {item.label}
               </Text>
             </HStack>
@@ -85,6 +91,9 @@ export default function DashboardShell({ title, navItems, children, user }: Dash
   const bg = useColorModeValue('gray.50', 'gray.950');
   const cardBg = useColorModeValue('white', 'gray.900');
   const borderColor = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const emailColor = useColorModeValue('gray.600', 'gray.400');
+  const searchIconColor = useColorModeValue('gray.400', 'gray.500');
+  const searchBg = useColorModeValue('gray.50', 'whiteAlpha.100');
 
   return (
     <Flex minH="100vh" bg={bg}>
@@ -124,7 +133,7 @@ export default function DashboardShell({ title, navItems, children, user }: Dash
                 {title || 'Dashboard'}
               </Text>
               {user?.email ? (
-                <Text fontSize="xs" color={useColorModeValue('gray.600', 'gray.400')} isTruncated>
+                <Text fontSize="xs" color={emailColor} isTruncated>
                   {user.email}
                 </Text>
               ) : null}
@@ -134,9 +143,9 @@ export default function DashboardShell({ title, navItems, children, user }: Dash
           <HStack spacing={3}>
             <InputGroup display={{ base: 'none', md: 'block' }} w={{ md: '260px', lg: '320px' }}>
               <InputLeftElement pointerEvents="none">
-                <Icon as={MdSearch} color={useColorModeValue('gray.400', 'gray.500')} />
+                <Icon as={MdSearch} color={searchIconColor} />
               </InputLeftElement>
-              <Input aria-label="Search" placeholder="Search..." bg={useColorModeValue('gray.50', 'whiteAlpha.100')} />
+              <Input aria-label="Search" placeholder="Search..." bg={searchBg} />
             </InputGroup>
             <Avatar size="sm" name={user?.name || 'User'} />
           </HStack>

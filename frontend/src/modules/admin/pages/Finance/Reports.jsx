@@ -9,27 +9,7 @@ import BarChart from '../../../../components/charts/BarChart';
 import PieChart from '../../../../components/charts/PieChart';
 import * as reportsApi from '../../../../services/api/reports';
 
-const mockSummary = { revenue: 0, refunds: 0, dues: 0, rate: 0 };
-const mockClass = [
-  { class: '10-A', billed: 360000, collected: 290000 },
-  { class: '10-B', billed: 340000, collected: 270000 },
-  { class: '9-A', billed: 280000, collected: 230000 },
-];
-const mockFeeHead = [
-  { head: 'Tuition', billed: 900000, collected: 750000 },
-  { head: 'Transport', billed: 120000, collected: 95000 },
-  { head: 'Hostel', billed: 180000, collected: 150000 },
-  { head: 'Exam', billed: 60000, collected: 50000 },
-];
-const mockTransportHostel = [
-  { type: 'Transport', routes: 8, billed: 120000, collected: 95000 },
-  { type: 'Hostel', rooms: 40, billed: 180000, collected: 150000 },
-];
-const mockFines = [
-  { category: '0-30 days', count: 42, fine: 21000 },
-  { category: '31-60 days', count: 18, fine: 27000 },
-  { category: '60+ days', count: 9, fine: 36000 },
-];
+const emptySummary = { revenue: 0, refunds: 0, dues: 0, rate: 0 };
 
 export default function Reports() {
   const [range, setRange] = useState('this-month');
@@ -45,9 +25,10 @@ export default function Reports() {
   const [reportTab, setReportTab] = useState(0); // 0: Overview, 1: Fee Head, 2: Payment Mode, 3: Transport/Hostel, 4: Overdue Fines
   const [method, setMethod] = useState('all');
   const [klass, setKlass] = useState('all');
-  const [summary, setSummary] = useState(mockSummary);
+  const [summary, setSummary] = useState(emptySummary);
   const [loading, setLoading] = useState(false);
   const toast = useToast();
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
 
   useEffect(() => {
     const getDateRange = (value) => {
@@ -105,7 +86,7 @@ export default function Reports() {
           duration: 6000,
           isClosable: true,
         });
-        setSummary(mockSummary);
+        setSummary(emptySummary);
         setRows([]);
         setFeeHeadRows([]);
         setPaymentMethods([]);
@@ -347,7 +328,7 @@ export default function Reports() {
                 const isClass = reportTab===0; const isRate = getActiveTable().header.includes('Rate');
                 const rate = isRate ? r[r.length-1] : null;
                 return (
-                  <Tr key={idx} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={idx} _hover={{ bg: rowHoverBg }}>
                     {r.map((c,i)=> (
                       <Td key={i} isNumeric={getActiveTable().header[i]==='Billed' || getActiveTable().header[i]==='Collected' || getActiveTable().header[i]==='Rate' || getActiveTable().header[i]==='Share %' || getActiveTable().header[i]==='Count' || getActiveTable().header[i]==='Fine'}>
                         {['Billed','Collected','Fine'].includes(getActiveTable().header[i]) ? `Rs. ${Number(c).toLocaleString()}` : getActiveTable().header[i]==='Rate' ? `${c}%` : c}

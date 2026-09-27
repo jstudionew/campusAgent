@@ -1,4 +1,5 @@
 import * as service from '../services/transport.service.js';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
 
 // Buses
 export const listBuses = async (req, res, next) => {
@@ -12,6 +13,7 @@ export const getBusById = async (req, res, next) => {
   try {
     const row = await service.getBusById(req.params.id);
     if (!row) return res.status(404).json({ message: 'Bus not found' });
+    if (!assertResourceCampusAccess(req, row.campusId)) return res.status(404).json({ message: 'Bus not found' });
     res.json(row);
   } catch (e) { next(e); }
 };
@@ -25,6 +27,9 @@ export const createBus = async (req, res, next) => {
 
 export const updateBus = async (req, res, next) => {
   try {
+    const existing = await service.getBusById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Bus not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Bus not found' });
     const row = await service.updateBus(req.params.id, req.body);
     if (!row) return res.status(404).json({ message: 'Bus not found' });
     res.json(row);
@@ -33,6 +38,9 @@ export const updateBus = async (req, res, next) => {
 
 export const deleteBus = async (req, res, next) => {
   try {
+    const existing = await service.getBusById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Bus not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Bus not found' });
     await service.deleteBus(req.params.id);
     res.json({ success: true });
   } catch (e) { next(e); }
@@ -53,6 +61,7 @@ export const getRouteById = async (req, res, next) => {
   try {
     const row = await service.getRouteById(req.params.id);
     if (!row) return res.status(404).json({ message: 'Route not found' });
+    if (!assertResourceCampusAccess(req, row.campusId)) return res.status(404).json({ message: 'Route not found' });
     res.json(row);
   } catch (e) { next(e); }
 };
@@ -66,6 +75,9 @@ export const createRoute = async (req, res, next) => {
 
 export const updateRoute = async (req, res, next) => {
   try {
+    const existing = await service.getRouteById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Route not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Route not found' });
     const row = await service.updateRoute(req.params.id, req.body);
     if (!row) return res.status(404).json({ message: 'Route not found' });
     res.json(row);
@@ -74,6 +86,9 @@ export const updateRoute = async (req, res, next) => {
 
 export const deleteRoute = async (req, res, next) => {
   try {
+    const existing = await service.getRouteById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Route not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Route not found' });
     await service.deleteRoute(req.params.id);
     res.json({ success: true });
   } catch (e) { next(e); }

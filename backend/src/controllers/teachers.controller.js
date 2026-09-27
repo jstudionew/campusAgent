@@ -3,6 +3,9 @@ import { query } from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import * as authSvc from '../services/auth.service.js';
 import { ensureAuthSchema } from '../db/autoMigrate.js';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
+import { sanitizeTeacherResponse } from '../utils/privacy.js';
+import { appendAuditLog } from '../utils/audit.js';
 
 const coerceString = (value) => {
   if (value === undefined) return undefined;
@@ -170,7 +173,10 @@ export const list = async (req, res, next) => {
       q,
       campusId
     });
-    return res.json(result);
+    const rows = Array.isArray(result?.rows)
+      ? result.rows.map((row) => sanitizeTeacherResponse(row, { actorRole: req.user?.role, actorId: req.user?.id, targetId: row.id }))
+      : [];
+    return res.json({ ...result, rows });
   } catch (e) {
     next(e);
   }
@@ -234,7 +240,8 @@ export const getById = async (req, res, next) => {
     }
     const teacher = await teachers.getById(Number(req.params.id));
     if (!teacher) return res.status(404).json({ message: 'Teacher not found' });
-    return res.json(teacher);
+    if (!assertResourceCampusAccess(req, teacher.campusId)) return res.status(404).json({ message: 'Teacher not found' });
+    return res.json(sanitizeTeacherResponse(teacher, { actorRole: req.user?.role, actorId: req.user?.id, targetId: teacher.id }));
   } catch (e) {
     next(e);
   }
@@ -286,7 +293,8 @@ export const create = async (req, res, next) => {
 
     const created = await teachers.create(payload);
     const resp = credentials ? { ...created, credentials } : created;
-    return res.status(201).json(resp);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'teacher_create', entityType: 'teacher', entityId: created?.id, campusId: req.user?.campusId || payload.campusId, details: { hasCredentials: Boolean(credentials) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    return res.status(201).json(sanitizeTeacherResponse(resp, { actorRole: req.user?.role, actorId: req.user?.id, targetId: created?.id }));
   } catch (e) {
     next(e);
   }
@@ -294,10 +302,14 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
+    const existing = await teachers.getById(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: 'Teacher not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Teacher not found' });
     const payload = normalizeTeacherPayload(req.body, { partial: true });
     const updated = await teachers.update(Number(req.params.id), payload);
     if (!updated) return res.status(404).json({ message: 'Teacher not found' });
-    return res.json(updated);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'teacher_update', entityType: 'teacher', entityId: updated?.id, campusId: req.user?.campusId || existing.campusId, details: { changedFields: Object.keys(payload) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    return res.json(sanitizeTeacherResponse(updated, { actorRole: req.user?.role, actorId: req.user?.id, targetId: updated.id }));
   } catch (e) {
     next(e);
   }
@@ -305,8 +317,12 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
+    const existing = await teachers.getById(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: 'Teacher not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Teacher not found' });
     const ok = await teachers.remove(Number(req.params.id));
     if (!ok) return res.status(404).json({ message: 'Teacher not found' });
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'teacher_delete', entityType: 'teacher', entityId: existing.id, campusId: existing.campusId, details: { removedBy: req.user?.role }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
     return res.json({ success: true });
   } catch (e) {
     next(e);
@@ -370,7 +386,7 @@ export const getMe = async (req, res, next) => {
     }
     const self = await teachers.getByUserId(req.user.id);
     if (!self) return res.status(404).json({ message: 'Teacher profile not found' });
-    return res.json(self);
+    return res.json(sanitizeTeacherResponse(self, { actorRole: req.user?.role, actorId: req.user?.id, targetId: self.id }));
   } catch (e) {
     next(e);
   }

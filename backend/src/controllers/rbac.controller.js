@@ -1,5 +1,6 @@
 import * as rbac from '../services/rbac.service.js';
 import * as settingsSvc from '../services/settings.service.js';
+import { canManageRole, canDelegatePermission } from '../middleware/auth.js';
 
 export const listRoles = async (req, res, next) => {
   try {
@@ -78,6 +79,22 @@ export const setPermissionsForRole = async (req, res, next) => {
   try {
     const role = String(req.params.role || '').toLowerCase();
     const perms = Array.isArray(req.body.perms) ? req.body.perms : [];
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+
+    if (requesterRole !== 'owner' && requesterRole !== 'superadmin' && requesterRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (!canManageRole(requesterRole, role)) {
+      return res.status(403).json({ message: 'Forbidden: You cannot delegate permissions to this role' });
+    }
+
+    for (const permission of perms) {
+      const permitted = await canDelegatePermission(requesterRole, permission);
+      if (!permitted) {
+        return res.status(403).json({ message: `Forbidden: You cannot delegate permission '${permission}'` });
+      }
+    }
+
     const item = await rbac.setPermissionsForRole(role, perms);
     res.json(item);
   } catch (e) { next(e); }
@@ -96,6 +113,42 @@ export const setModulesForRole = async (req, res, next) => {
     const role = String(req.params.role || '').toLowerCase();
     const allowModules = Array.isArray(req.body.allowModules) ? req.body.allowModules : [];
     const allowSubroutes = Array.isArray(req.body.allowSubroutes) ? req.body.allowSubroutes : [];
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+
+    if (requesterRole !== 'owner' && requesterRole !== 'superadmin' && requesterRole !== 'admin') {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (!canManageRole(requesterRole, role)) {
+      return res.status(403).json({ message: 'Forbidden: You cannot delegate module access to this role' });
+    }
+
+    const delegatedPerms = new Set();
+    for (const module of allowModules) {
+      const key = String(module).toLowerCase();
+      const permissionMap = {
+        students: 'students.manage',
+        teachers: 'teachers.manage',
+        parents: 'parents.manage',
+        attendance: 'attendance.edit',
+        finance: 'finance.edit',
+        transport: 'transport.manage',
+        reports: 'reports.export',
+        communication: 'communication.send',
+        settings: 'settings.manage',
+        dashboard: 'reports.view',
+        academics: 'classes.manage',
+      };
+      const permission = permissionMap[key] || null;
+      if (permission) delegatedPerms.add(permission);
+    }
+
+    for (const permission of Array.from(delegatedPerms)) {
+      const permitted = await canDelegatePermission(requesterRole, permission);
+      if (!permitted) {
+        return res.status(403).json({ message: `Forbidden: You cannot delegate module access that requires '${permission}'` });
+      }
+    }
+
     const item = await rbac.setModulesForRole(role, { allowModules, allowSubroutes });
     res.json(item);
   } catch (e) { next(e); }

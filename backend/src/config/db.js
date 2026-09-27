@@ -6,8 +6,8 @@ loadEnv();
 
 const { Pool, Client } = pg;
 
-const defaultSchool = 'postgres://postgres:12345@localhost:5432/school_db';
-const defaultPostgres = 'postgres://postgres:12345@localhost:5432/postgres';
+const defaultSchool = 'postgres://localhost:5432/school_db';
+const defaultPostgres = 'postgres://localhost:5432/postgres';
 
 const CONNECT_TIMEOUT_MS = Number(process.env.PG_CONNECT_TIMEOUT_MS) || 5000;
 

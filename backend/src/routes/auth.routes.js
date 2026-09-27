@@ -6,7 +6,6 @@ import { validate } from '../middleware/validate.js';
 import { ALLOWED_USER_ROLES } from '../services/auth.service.js';
 
 const router = Router();
-const ownerKeyMin = Number(process.env.OWNER_KEY_MIN_LENGTH || 30);
 
 router.post(
   '/login',
@@ -20,8 +19,7 @@ router.post(
       if (emailRegex.test(v) || phoneRegex.test(v)) return true;
       throw new Error('Provide username or a valid email/phone number');
     }),
-    body('password').isString().isLength({ min: 6 }),
-    body('ownerKey').optional().isString().isLength({ min: ownerKeyMin })
+    body('password').isString().isLength({ min: 6 })
   ],
   validate,
   authController.login

@@ -64,6 +64,7 @@ export default function AttendanceReports() {
   const [roll, setRoll] = useState('');
   const [classOptions, setClassOptions] = useState([]);
   const [sectionOptions, setSectionOptions] = useState([]);
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
 
   const totals = useMemo(() => {
     const totalRecords = rows.reduce((acc, r) => acc + (r.present + r.absent + r.late), 0);
@@ -274,7 +275,7 @@ export default function AttendanceReports() {
                 const total = row.present + row.absent + row.late;
                 const overall = total ? Math.round((row.present * 100) / total) : 0;
                 return (
-                  <Tr key={row.class + String(row.total)} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={row.class + String(row.total)} _hover={{ bg: rowHoverBg }}>
                     <Td><Text fontWeight='500'>{row.class || '-'}</Text></Td>
                     <Td isNumeric><Badge colorScheme='green'>{row.present}</Badge></Td>
                     <Td isNumeric><Badge colorScheme='red'>{row.absent}</Badge></Td>

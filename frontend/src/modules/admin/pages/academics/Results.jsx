@@ -298,7 +298,7 @@ export default function Results() {
               </InputLeftElement>
               <Input placeholder='Search by student name' value={query} onChange={(e) => setQuery(e.target.value)} />
             </InputGroup>
-            <Select size='sm' w="220px" value={examId} onChange={(e) => setExamId(e.target.value)} isLoading={loadingExams}>
+            <Select size='sm' w="220px" value={examId} onChange={(e) => setExamId(e.target.value)} isDisabled={loadingExams}>
               <option value='All'>All Exams</option>
               {exams.map(ex => <option key={ex.id} value={ex.id}>{ex.title || `Exam #${ex.id}`}</option>)}
             </Select>

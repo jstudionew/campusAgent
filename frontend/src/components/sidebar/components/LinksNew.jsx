@@ -26,22 +26,24 @@ export function SidebarLinks(props) {
   const [openMenus, setOpenMenus] = useState({});
   const [collapsedOpen, setCollapsedOpen] = useState({});
 
-  //   Chakra color mode
+  // Chakra color mode - modern hierarchy
   let location = useLocation();
-  let activeColor = useColorModeValue("gray.700", "white");
-  let inactiveColor = useColorModeValue(
-    "secondaryGray.600",
-    "secondaryGray.600"
-  );
-  let activeIcon = useColorModeValue("brand.500", "white");
-  let textColor = useColorModeValue("secondaryGray.500", "white");
+  let activeColor = useColorModeValue("brand.700", "white");
+  let inactiveColor = useColorModeValue("secondaryGray.600", "secondaryGray.400");
+  let activeIcon = useColorModeValue("brand.500", "brand.300");
+  let inactiveIcon = useColorModeValue("secondaryGray.500", "secondaryGray.400");
+  let textColor = useColorModeValue("secondaryGray.700", "secondaryGray.300");
   let brandColor = useColorModeValue("brand.500", "brand.400");
+  let activeBg = useColorModeValue("brand.50", "rgba(37, 99, 235, 0.2)");
+  let hoverBg = useColorModeValue("secondaryGray.100", "whiteAlpha.100");
+  let popoverBg = useColorModeValue("white", "navy.800");
+  let popoverBorder = useColorModeValue("secondaryGray.200", "whiteAlpha.200");
+  let categoryTextColor = useColorModeValue("secondaryGray.500", "secondaryGray.400");
 
   const { routes } = props;
   const { toggleSidebar } = useContext(SidebarContext) || {};
   const isCollapsed = !!toggleSidebar;
 
-  // verifies if routeName is the one active (in browser input)
   const normalizePath = (p) => {
     if (!p) return '';
     return String(p).toLowerCase();
@@ -60,7 +62,6 @@ export function SidebarLinks(props) {
     return current.startsWith(target + '/');
   };
 
-  // Check if any child route is active
   const hasActiveChild = (items) => {
     if (!items) return false;
     return items.some(item =>
@@ -68,7 +69,6 @@ export function SidebarLinks(props) {
     );
   };
 
-  // Toggle menu open/closed
   const toggleMenu = (menuName) => {
     setOpenMenus(prev => ({
       ...prev,
@@ -81,39 +81,38 @@ export function SidebarLinks(props) {
     return items.map((item, index) => {
       if (item.hidden) return null;
 
-      // Indentation calculation
-      const paddingStart = `${52 + level * 20}px`;
+      const paddingStart = `${48 + level * 16}px`;
 
-      // Handle nested dropdowns (collapsible items inside sidebar)
       if (item.collapse && item.items) {
         const isOpen = openMenus[item.name] || hasActiveChild(item.items);
         const hasActive = hasActiveChild(item.items);
 
         return (
-          <Box key={index} mb="4px">
+          <Box key={index} mb="2px">
             <Box
               onClick={() => toggleMenu(item.name)}
               cursor="pointer"
               _hover={{
-                bg: useColorModeValue("gray.100", "whiteAlpha.100"),
+                bg: hoverBg,
                 borderRadius: "8px"
               }}
               py="6px"
               ps={paddingStart}
               pe="10px"
               display={isCollapsed ? "none" : "block"}
+              transition="all 0.15s ease"
             >
               <HStack spacing="auto" alignItems="center">
                 <Text
                   fontSize="sm"
                   color={hasActive ? activeColor : textColor}
-                  fontWeight={hasActive ? "600" : "600"}
+                  fontWeight={hasActive ? "700" : "500"}
                 >
                   {item.name}
                 </Text>
                 <Icon
                   as={isOpen ? MdKeyboardArrowDown : MdKeyboardArrowRight}
-                  color={textColor}
+                  color={hasActive ? brandColor : textColor}
                   w="16px"
                   h="16px"
                 />
@@ -128,45 +127,43 @@ export function SidebarLinks(props) {
         );
       }
 
-      // Skip items without a path
       if (!item.path) return null;
+
+      const active = isRouteActive(getFullPath(item));
 
       return (
         <NavLink key={index} to={item.layout + item.path}>
           <HStack
-            spacing="22px"
-            py="8px"
+            spacing="16px"
+            py="7px"
             ps={paddingStart}
+            pe="10px"
+            my="1px"
+            mx="6px"
+            borderRadius="8px"
             position="relative"
+            bg={active ? activeBg : "transparent"}
             _hover={{
-              bg: useColorModeValue("gray.100", "whiteAlpha.100"),
-              borderRadius: "8px"
+              bg: active ? activeBg : hoverBg,
             }}
+            transition="all 0.15s ease"
             display={isCollapsed ? "none" : "flex"}
           >
             <Text
               fontSize="sm"
-              color={
-                isRouteActive(getFullPath(item))
-                  ? activeColor
-                  : textColor
-              }
-              fontWeight={
-                isRouteActive(getFullPath(item))
-                  ? "600"
-                  : "normal"
-              }
+              color={active ? activeColor : textColor}
+              fontWeight={active ? "700" : "500"}
             >
               {item.name}
             </Text>
-            {isRouteActive(getFullPath(item)) && (
+            {active && (
               <Box
                 position="absolute"
                 left="0"
-                h="20px"
+                h="18px"
                 w="3px"
                 bg={brandColor}
-                borderRadius="0 5px 5px 0"
+                borderRadius="0 4px 4px 0"
               />
             )}
           </HStack>
@@ -178,50 +175,56 @@ export function SidebarLinks(props) {
   // Main function to create links
   const createLinks = (routes) => {
     return routes.map((route, index) => {
-      // Skip hidden routes
-      if (route.hidden) {
-        return null;
-      }
+      if (route.hidden) return null;
 
       // Handle collapsible routes with sub-items
       if (route.collapse && route.items) {
         const isOpen = openMenus[route.name] || hasActiveChild(route.items);
         const hasActive = hasActiveChild(route.items);
 
-        // Collapsed: show icon with hover popover listing sub-items
+        // Collapsed mode: icon with popover
         if (isCollapsed) {
           return (
-            <Box key={index} mb="4px" position="relative">
-              <Popover isOpen={!!collapsedOpen[route.name]} placement="right-start" isLazy onClose={() => setCollapsedOpen(prev => ({ ...prev, [route.name]: false }))}>
+            <Box key={index} mb="4px" position="relative" px="8px">
+              <Popover
+                isOpen={!!collapsedOpen[route.name]}
+                placement="right-start"
+                isLazy
+                onClose={() => setCollapsedOpen(prev => ({ ...prev, [route.name]: false }))}
+              >
                 <PopoverTrigger>
                   <Box
                     as="button"
                     w="100%"
-                    _hover={{ bg: useColorModeValue("gray.100", "whiteAlpha.100"), borderRadius: "8px" }}
-                    onClick={(e) => { e.preventDefault(); setCollapsedOpen(prev => ({ ...prev, [route.name]: !prev[route.name] })); }}
+                    borderRadius="10px"
+                    bg={hasActive ? activeBg : "transparent"}
+                    _hover={{ bg: hasActive ? activeBg : hoverBg }}
+                    onClick={(e) => {
+                      e.preventDefault();
+                      setCollapsedOpen(prev => ({ ...prev, [route.name]: !prev[route.name] }));
+                    }}
                     position="relative"
+                    py="8px"
+                    transition="all 0.2s ease"
                   >
-                    <HStack spacing="22px" py="10px" ps="10px" pe="10px">
-                      <Flex w="100%" alignItems="center" justifyContent="center">
-                        <Box
-                          color={hasActive ? activeIcon : textColor}
-                          me="0px"
-                          p="6px"
-                          borderRadius="md"
-                          bg={hasActive ? useColorModeValue("blue.50", "whiteAlpha.100") : "transparent"}
-                        >
-                          {route.icon}
-                        </Box>
-                      </Flex>
-                    </HStack>
+                    <Flex w="100%" alignItems="center" justifyContent="center">
+                      <Box
+                        color={hasActive ? activeIcon : inactiveIcon}
+                        p="6px"
+                        borderRadius="8px"
+                        fontSize="20px"
+                      >
+                        {route.icon}
+                      </Box>
+                    </Flex>
                     {hasActive && (
                       <Box
                         position="absolute"
-                        right="8px"
+                        right="4px"
                         top="50%"
                         transform="translateY(-50%)"
-                        w="6px"
-                        h="6px"
+                        w="5px"
+                        h="5px"
                         bg={brandColor}
                         borderRadius="full"
                       />
@@ -229,22 +232,44 @@ export function SidebarLinks(props) {
                   </Box>
                 </PopoverTrigger>
                 <Portal>
-                  <PopoverContent w="220px" _focus={{ boxShadow: "md" }} zIndex={2000}>
-                    <PopoverArrow />
-                    <PopoverBody>
-                      <VStack align="stretch" spacing="4px">
+                  <PopoverContent
+                    w="230px"
+                    bg={popoverBg}
+                    borderColor={popoverBorder}
+                    boxShadow="xl"
+                    borderRadius="12px"
+                    _focus={{ boxShadow: "xl" }}
+                    zIndex={2000}
+                  >
+                    <PopoverArrow bg={popoverBg} />
+                    <PopoverBody p="10px">
+                      <Text
+                        fontSize="xs"
+                        fontWeight="700"
+                        color={brandColor}
+                        textTransform="uppercase"
+                        letterSpacing="0.5px"
+                        mb="8px"
+                        px="6px"
+                      >
+                        {route.name}
+                      </Text>
+                      <VStack align="stretch" spacing="3px">
                         {route.items.filter(item => !item.hidden).map((item, subIndex) => (
                           <NavLink key={subIndex} to={item.layout + item.path}>
                             <HStack
-                              spacing="12px"
-                              py="8px"
-                              ps="6px"
-                              _hover={{ bg: useColorModeValue("gray.100", "whiteAlpha.100"), borderRadius: "8px" }}
+                              spacing="10px"
+                              py="7px"
+                              px="10px"
+                              borderRadius="8px"
+                              bg={isRouteActive(getFullPath(item)) ? activeBg : "transparent"}
+                              _hover={{ bg: isRouteActive(getFullPath(item)) ? activeBg : hoverBg }}
+                              transition="all 0.15s ease"
                             >
                               <Text
                                 fontSize="sm"
                                 color={isRouteActive(getFullPath(item)) ? activeColor : textColor}
-                                fontWeight={isRouteActive(getFullPath(item)) ? "600" : "normal"}
+                                fontWeight={isRouteActive(getFullPath(item)) ? "700" : "500"}
                               >
                                 {item.name}
                               </Text>
@@ -260,61 +285,64 @@ export function SidebarLinks(props) {
           );
         }
 
-        // Expanded: normal collapsible list with labels
+        // Expanded mode
         return (
-          <Box key={index} mb="4px">
+          <Box key={index} mb="2px" px="8px">
             <Box
               onClick={() => toggleMenu(route.name)}
               cursor="pointer"
+              borderRadius="10px"
+              bg={hasActive ? activeBg : "transparent"}
               _hover={{
-                bg: useColorModeValue("gray.100", "whiteAlpha.100"),
-                borderRadius: "8px"
+                bg: hasActive ? activeBg : hoverBg,
               }}
+              transition="all 0.15s ease"
             >
               <HStack
-                spacing="22px"
-                py="10px"
-                ps="10px"
-                pe="10px"
+                spacing="14px"
+                py="9px"
+                px="12px"
                 position="relative"
               >
                 <Flex w="100%" alignItems="center">
                   <Box
-                    color={hasActive ? activeIcon : textColor}
-                    me="18px"
+                    color={hasActive ? activeIcon : inactiveIcon}
+                    me="14px"
+                    fontSize="20px"
+                    display="flex"
+                    alignItems="center"
                   >
                     {route.icon}
                   </Box>
                   <Text
                     me="auto"
                     color={hasActive ? activeColor : textColor}
-                    fontWeight={hasActive ? "bold" : "500"}
-                    fontSize="md"
-                    display={isCollapsed ? "none" : "block"}
+                    fontWeight={hasActive ? "700" : "600"}
+                    fontSize="sm"
                   >
                     {route.name}
                   </Text>
                   <Icon
                     as={isOpen ? MdKeyboardArrowDown : MdKeyboardArrowRight}
-                    color={textColor}
-                    w="20px"
-                    h="20px"
+                    color={hasActive ? brandColor : inactiveIcon}
+                    w="18px"
+                    h="18px"
                   />
                 </Flex>
                 {hasActive && (
                   <Box
                     position="absolute"
-                    right="0"
-                    h="36px"
+                    left="0"
+                    h="24px"
                     w="4px"
                     bg={brandColor}
-                    borderRadius="5px 0 0 5px"
+                    borderRadius="0 4px 4px 0"
                   />
                 )}
               </HStack>
             </Box>
             <Collapse in={isOpen} animateOpacity>
-              <VStack align="stretch" spacing="2px" mt="2px">
+              <VStack align="stretch" spacing="1px" mt="2px">
                 {renderSubItems(route.items)}
               </VStack>
             </Collapse>
@@ -327,16 +355,15 @@ export function SidebarLinks(props) {
         return (
           <React.Fragment key={index}>
             <Text
-              fontSize="md"
-              color={activeColor}
-              fontWeight="bold"
+              fontSize="xs"
+              color={categoryTextColor}
+              fontWeight="700"
+              textTransform="uppercase"
+              letterSpacing="0.8px"
               mx="auto"
-              ps={{
-                sm: "10px",
-                xl: "16px",
-              }}
+              ps="20px"
               pt="18px"
-              pb="12px"
+              pb="6px"
               display={isCollapsed ? "none" : "block"}
             >
               {route.name}
@@ -356,113 +383,60 @@ export function SidebarLinks(props) {
         route.layout === "/driver"
       ) {
         const fullPath = getFullPath(route);
+        const active = isRouteActive(fullPath);
+
         const linkContent = (
           <NavLink key={index} to={route.layout + route.path}>
-            {route.icon ? (
-              <Box mb="4px">
-                <HStack
-                  spacing={
-                    isRouteActive(fullPath) ? "22px" : "26px"
-                  }
-                  py="10px"
-                  ps="10px"
-                  position="relative"
-                  _hover={{
-                    bg: useColorModeValue("gray.100", "whiteAlpha.100"),
-                    borderRadius: "8px"
-                  }}
-                >
-                  <Flex w="100%" alignItems="center" justifyContent="center">
-                    <Box
-                      color={
-                        isRouteActive(fullPath)
-                          ? activeIcon
-                          : textColor
-                      }
-                      me={isCollapsed ? "0px" : "18px"}
-                    >
-                      {route.icon}
-                    </Box>
-                    <Text
-                      me="auto"
-                      color={
-                        isRouteActive(fullPath)
-                          ? activeColor
-                          : textColor
-                      }
-                      fontWeight={
-                        isRouteActive(fullPath)
-                          ? "bold"
-                          : "500"
-                      }
-                      fontSize="md"
-                      display={isCollapsed ? "none" : "block"}
-                    >
-                      {route.name}
-                    </Text>
-                  </Flex>
-                  {isRouteActive(fullPath) && (
-                    isCollapsed ? (
-                      <Box
-                        position="absolute"
-                        right="8px"
-                        top="50%"
-                        transform="translateY(-50%)"
-                        w="6px"
-                        h="6px"
-                        bg={brandColor}
-                        borderRadius="full"
-                      />
-                    ) : (
-                      <Box
-                        h="36px"
-                        w="4px"
-                        bg={brandColor}
-                        borderRadius="5px"
-                      />
-                    )
-                  )}
-                </HStack>
-              </Box>
-            ) : (
-              <Box mb="4px">
-                <HStack
-                  spacing={
-                    isRouteActive(fullPath) ? "22px" : "26px"
-                  }
-                  py="10px"
-                  ps="10px"
-                  _hover={{
-                    bg: useColorModeValue("gray.100", "whiteAlpha.100"),
-                    borderRadius: "8px"
-                  }}
-                >
+            <Box mb="2px" px="8px">
+              <HStack
+                spacing="14px"
+                py="9px"
+                px="12px"
+                borderRadius="10px"
+                position="relative"
+                bg={active ? activeBg : "transparent"}
+                _hover={{
+                  bg: active ? activeBg : hoverBg,
+                }}
+                transition="all 0.15s ease"
+              >
+                <Flex w="100%" alignItems="center" justifyContent="center">
+                  <Box
+                    color={active ? activeIcon : inactiveIcon}
+                    me={isCollapsed ? "0px" : "14px"}
+                    fontSize="20px"
+                    display="flex"
+                    alignItems="center"
+                  >
+                    {route.icon}
+                  </Box>
                   <Text
                     me="auto"
-                    color={
-                      isRouteActive(fullPath)
-                        ? activeColor
-                        : inactiveColor
-                    }
-                    fontWeight={
-                      isRouteActive(fullPath) ? "bold" : "500"
-                    }
-                    fontSize="md"
+                    color={active ? activeColor : textColor}
+                    fontWeight={active ? "700" : "600"}
+                    fontSize="sm"
                     display={isCollapsed ? "none" : "block"}
                   >
                     {route.name}
                   </Text>
-                  {isRouteActive(fullPath) && (
-                    <Box h="36px" w="4px" bg={brandColor} borderRadius="5px" />
-                  )}
-                </HStack>
-              </Box>
-            )}
+                </Flex>
+                {active && (
+                  <Box
+                    position="absolute"
+                    left="0"
+                    h={isCollapsed ? "20px" : "24px"}
+                    w="4px"
+                    bg={brandColor}
+                    borderRadius="0 4px 4px 0"
+                  />
+                )}
+              </HStack>
+            </Box>
           </NavLink>
         );
-        // Wrap with tooltip in collapsed mode so user sees the label
+
         return isCollapsed ? (
-          <Tooltip key={index} label={route.name} placement="right">
+          <Tooltip key={index} label={route.name} placement="right" hasArrow>
             <Box>{linkContent}</Box>
           </Tooltip>
         ) : linkContent;
@@ -470,7 +444,6 @@ export function SidebarLinks(props) {
     });
   };
 
-  //  BRAND
   return createLinks(routes);
 }
 

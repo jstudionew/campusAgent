@@ -172,21 +172,6 @@ const ReduxLoginExample = () => {
             </Button>
           </FormControl>
         </form>
-        
-        <Flex
-          flexDirection="column"
-          justifyContent="center"
-          alignItems="center"
-          maxW="100%"
-          mt="0px"
-        >
-          <Text color={textColorSecondary} fontWeight="400" fontSize="sm">
-            Demo Credentials:
-          </Text>
-          <Text color={textColorSecondary} fontWeight="400" fontSize="sm">
-            Email: admin@school.com | Password: password
-          </Text>
-        </Flex>
       </Box>
     </Flex>
   );

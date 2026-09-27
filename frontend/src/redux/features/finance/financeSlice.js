@@ -1,51 +1,37 @@
 import { createSlice, createAsyncThunk } from '@reduxjs/toolkit';
+import * as financeApi from '../../../services/api/finance';
+import * as reportsApi from '../../../services/api/reports';
 
-// Mock API functions
 const fetchFinanceAPI = async () => {
-  // Replace with actual API call
-  return new Promise((resolve) => {
-    setTimeout(() => {
-      resolve({
-        feeCollection: {
-          total: 1250000,
-          collected: 950000,
-          pending: 300000,
-          overdue: 150000,
-        },
-        monthlyStats: [
-          { month: 'Jan', collected: 85000, pending: 15000 },
-          { month: 'Feb', collected: 90000, pending: 10000 },
-          { month: 'Mar', collected: 95000, pending: 5000 },
-          { month: 'Apr', collected: 80000, pending: 20000 },
-          { month: 'May', collected: 82000, pending: 18000 },
-          // More monthly data...
-        ],
-        recentPayments: [
-          { 
-            id: 1, 
-            studentId: 1, 
-            amount: 5000, 
-            date: '2025-11-05', 
-            method: 'Online',
-            status: 'completed',
-            studentName: 'John Doe',
-            feeType: 'Tuition',
-          },
-          { 
-            id: 2, 
-            studentId: 2, 
-            amount: 4500, 
-            date: '2025-11-04', 
-            method: 'Cash',
-            status: 'completed',
-            studentName: 'Jane Smith',
-            feeType: 'Tuition',
-          },
-          // More payment records...
-        ],
-      });
-    }, 1000);
-  });
+  const [summaryRes, paymentsRes] = await Promise.all([
+    reportsApi.financeSummary({}),
+    financeApi.listUnifiedPayments({ page: 1, pageSize: 10 }),
+  ]);
+
+  const total = Number(summaryRes?.totalAmount || 0);
+  const collected = Number(summaryRes?.paidAmount || 0);
+  const pending = Number(summaryRes?.pendingAmount || 0);
+  const overdue = Number(summaryRes?.overdueAmount || 0);
+
+  return {
+    feeCollection: {
+      total,
+      collected,
+      pending,
+      overdue,
+    },
+    monthlyStats: [],
+    recentPayments: (Array.isArray(paymentsRes?.items) ? paymentsRes.items : []).map((payment) => ({
+      id: payment.id,
+      studentId: payment.userId,
+      amount: Number(payment.amount || 0),
+      date: payment.paidAt ? new Date(payment.paidAt).toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+      method: payment.method || 'cash',
+      status: 'completed',
+      studentName: payment.userName || 'Unknown Student',
+      feeType: payment.invoiceNumber || 'Fee',
+    })),
+  };
 };
 
 // Async thunks
@@ -54,7 +40,7 @@ export const fetchFinanceData = createAsyncThunk('finance/fetchData', async (_, 
     const financeData = await fetchFinanceAPI();
     return financeData;
   } catch (error) {
-    return rejectWithValue(error.message);
+    return rejectWithValue(error.message || 'Failed to load finance data');
   }
 });
 

@@ -3,6 +3,9 @@ import { ensureParentsSchema } from '../db/autoMigrate.js';
 import * as settingsSvc from '../services/settings.service.js';
 import * as authService from '../services/auth.service.js';
 import bcrypt from 'bcryptjs';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
+import { stripSensitiveFields } from '../utils/privacy.js';
+import { appendAuditLog } from '../utils/audit.js';
 
 export const list = async (req, res, next) => {
   try {
@@ -12,7 +15,8 @@ export const list = async (req, res, next) => {
     const { q, page = 1, pageSize = 50 } = req.query;
     const campusId = req.user?.campusId;
     const data = await parents.list({ q, page: Number(page), pageSize: Number(pageSize), campusId });
-    res.json(data);
+    const rows = Array.isArray(data?.rows) ? data.rows.map((row) => stripSensitiveFields(row)) : [];
+    res.json({ ...data, rows });
   } catch (e) { next(e); }
 };
 
@@ -21,7 +25,12 @@ export const getById = async (req, res, next) => {
     await ensureParentsSchema();
     const p = await parents.getById(Number(req.params.id));
     if (!p) return res.status(404).json({ message: 'Parent not found' });
-    res.json(p);
+    if (req.user?.role === 'parent') {
+      const currentParent = await parents.getByUserId(req.user.id);
+      if (!currentParent || String(currentParent.familyNumber) !== String(p.familyNumber)) return res.status(404).json({ message: 'Parent not found' });
+    }
+    if (!assertResourceCampusAccess(req, p.campusId)) return res.status(404).json({ message: 'Parent not found' });
+    res.json(stripSensitiveFields(p));
   } catch (e) { next(e); }
 };
 
@@ -64,7 +73,8 @@ export const create = async (req, res, next) => {
     }
 
     const p = await parents.create(payload);
-    res.status(201).json(p);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'parent_create', entityType: 'parent', entityId: p?.id, campusId: payload.campusId, details: { familyNumber: p?.familyNumber }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    res.status(201).json(stripSensitiveFields(p));
   } catch (e) { next(e); }
 };
 
@@ -76,6 +86,11 @@ export const update = async (req, res, next) => {
 
     const existingParent = await parents.getById(Number(req.params.id));
     if (!existingParent) return res.status(404).json({ message: 'Parent not found' });
+    if (req.user?.role === 'parent') {
+      const currentParent = await parents.getByUserId(req.user.id);
+      if (!currentParent || String(currentParent.familyNumber) !== String(existingParent.familyNumber)) return res.status(404).json({ message: 'Parent not found' });
+    }
+    if (!assertResourceCampusAccess(req, existingParent.campusId)) return res.status(404).json({ message: 'Parent not found' });
 
     if (password && String(password).length >= 6) {
       const phone = payload.whatsappPhone || existingParent.whatsappPhone;
@@ -92,7 +107,8 @@ export const update = async (req, res, next) => {
 
     const p = await parents.update(Number(req.params.id), payload);
     if (!p) return res.status(404).json({ message: 'Parent not found' });
-    res.json(p);
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'parent_update', entityType: 'parent', entityId: p?.id, campusId: existingParent.campusId, details: { updatedFields: Object.keys(payload) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
+    res.json(stripSensitiveFields(p));
   } catch (e) { next(e); }
 };
 
@@ -105,6 +121,11 @@ export const inform = async (req, res, next) => {
     if (!message) return res.status(400).json({ message: 'Message is required' });
     const p = await parents.getById(Number(id));
     if (!p) return res.status(404).json({ message: 'Parent not found' });
+    if (req.user?.role === 'parent') {
+      const currentParent = await parents.getByUserId(req.user.id);
+      if (!currentParent || String(currentParent.familyNumber) !== String(p.familyNumber)) return res.status(404).json({ message: 'Parent not found' });
+    }
+    if (!assertResourceCampusAccess(req, p.campusId)) return res.status(404).json({ message: 'Parent not found' });
     const hasChild = Array.isArray(p.children) && p.children.some((c) => String(c.id) === String(childId));
     if (childId && !hasChild) return res.status(400).json({ message: 'Child not linked to this parent' });
 
@@ -178,8 +199,16 @@ export const inform = async (req, res, next) => {
 };
 export const remove = async (req, res, next) => {
   try {
+    const existing = await parents.getById(Number(req.params.id));
+    if (!existing) return res.status(404).json({ message: 'Parent not found' });
+    if (req.user?.role === 'parent') {
+      const currentParent = await parents.getByUserId(req.user.id);
+      if (!currentParent || String(currentParent.familyNumber) !== String(existing.familyNumber)) return res.status(404).json({ message: 'Parent not found' });
+    }
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Parent not found' });
     const success = await parents.remove(Number(req.params.id));
     if (!success) return res.status(404).json({ message: 'Parent not found' });
+    await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'parent_delete', entityType: 'parent', entityId: existing.id, campusId: existing.campusId, details: { removedBy: req.user?.role }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });
     res.json({ success: true });
   } catch (e) { next(e); }
 };

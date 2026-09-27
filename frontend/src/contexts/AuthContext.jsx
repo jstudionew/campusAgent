@@ -230,7 +230,7 @@ export const AuthProvider = ({ children }) => {
   }, [user?.role, refreshModuleAccess]);
 
   // Login function
-  const login = useCallback(async (email, password, remember = false, ownerKey) => {
+  const login = useCallback(async (email, password, remember = false) => {
     setLoading(true);
     setError(null);
     try {
@@ -257,7 +257,7 @@ export const AuthProvider = ({ children }) => {
         const emailRegex = /.+@.+\..+/;
         const phoneRegex = /^\+?\d{10,15}$|^0\d{10}$|^3\d{9}$/;
         const looksEmailOrPhone = emailRegex.test(id) || phoneRegex.test(id);
-        const res = await authApi.login({ email: looksEmailOrPhone ? id : undefined, username: looksEmailOrPhone ? undefined : id, password, ownerKey });
+        const res = await authApi.login({ email: looksEmailOrPhone ? id : undefined, username: looksEmailOrPhone ? undefined : id, password });
         token = res?.token || res?.accessToken;
         refreshToken = res?.refreshToken;
         userData = res?.user || null;

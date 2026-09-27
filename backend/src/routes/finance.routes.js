@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as controller from '../controllers/finance.controller.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
@@ -11,7 +11,7 @@ const router = Router();
 // ========================================
 
 // Check if any users exist (students, teachers, drivers)
-router.get('/check-users', authenticate, authorize('admin', 'owner'), controller.checkUsersExist);
+router.get('/check-users', authenticate, authorize('admin', 'owner'), requirePermission('finance', 'view'), controller.checkUsersExist);
 
 // Get users by type for dropdown
 router.get(
@@ -77,6 +77,7 @@ router.post(
   '/unified-invoices',
   authenticate,
   authorize('admin', 'owner'),
+  requirePermission('finance', 'create'),
   [
     body('userType').isIn(['student', 'teacher', 'driver']).withMessage('User type is required'),
     body('userId').isInt().withMessage('User ID is required'),
@@ -96,6 +97,7 @@ router.put(
   '/unified-invoices/:id',
   authenticate,
   authorize('admin', 'owner'),
+  requirePermission('finance', 'edit'),
   [
     param('id').isInt(),
     body('amount').optional().isFloat({ gt: 0 }),
@@ -113,6 +115,7 @@ router.delete(
   '/unified-invoices/:id',
   authenticate,
   authorize('admin', 'owner'),
+  requirePermission('finance', 'edit'),
   [param('id').isInt()],
   validate,
   controller.deleteUnifiedInvoice
@@ -140,6 +143,7 @@ router.post(
   '/unified-payments',
   authenticate,
   authorize('admin', 'owner'),
+  requirePermission('finance', 'create'),
   [
     body('invoiceId').isInt().withMessage('Invoice ID is required'),
     body('amount').isFloat({ gt: 0 }).withMessage('Amount must be greater than 0'),
@@ -172,6 +176,7 @@ router.post(
   '/receipts',
   authenticate,
   authorize('admin', 'owner'),
+  requirePermission('finance', 'create'),
   [body('paymentId').isInt().withMessage('Payment ID is required')],
   validate,
   controller.createReceipt

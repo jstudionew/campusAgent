@@ -1,4 +1,5 @@
 import * as service from '../services/exams.service.js';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
 
 export const list = async (req, res, next) => {
   try {
@@ -15,6 +16,7 @@ export const getById = async (req, res, next) => {
   try {
     const item = await service.getExamById(req.params.id);
     if (!item) return res.status(404).json({ message: 'Exam not found' });
+    if (!assertResourceCampusAccess(req, item.campusId)) return res.status(404).json({ message: 'Exam not found' });
     res.json(item);
   } catch (e) { next(e); }
 };
@@ -28,6 +30,9 @@ export const create = async (req, res, next) => {
 
 export const update = async (req, res, next) => {
   try {
+    const existing = await service.getExamById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Exam not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Exam not found' });
     const item = await service.updateExam(req.params.id, req.body);
     if (!item) return res.status(404).json({ message: 'Exam not found' });
     res.json(item);
@@ -36,6 +41,9 @@ export const update = async (req, res, next) => {
 
 export const remove = async (req, res, next) => {
   try {
+    const existing = await service.getExamById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Exam not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Exam not found' });
     await service.deleteExam(req.params.id);
     res.json({ success: true });
   } catch (e) { next(e); }

@@ -3,6 +3,7 @@ import * as studentsSvc from '../services/students.service.js';
 import * as teachersSvc from '../services/teachers.service.js';
 import * as driversSvc from '../services/drivers.service.js';
 import * as parentsSvc from '../services/parents.service.js';
+import { assertResourceCampusAccess } from '../middleware/auth.js';
 
 // ========================================
 // USER CHECKS
@@ -106,6 +107,12 @@ export const getUnifiedInvoiceById = async (req, res, next) => {
   try {
     const invoice = await service.getUnifiedInvoiceById(req.params.id);
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
+    if (!assertResourceCampusAccess(req, invoice.campusId)) return res.status(404).json({ message: 'Invoice not found' });
+    if (req.user?.role === 'parent') {
+      const parent = await parentsSvc.getByUserId(req.user.id);
+      const selfIds = (await studentsSvc.list({ familyNumber: parent?.familyNumber, pageSize: 1000, campusId: req.user?.campusId })).rows.map((s) => Number(s.id));
+      if (!selfIds.includes(Number(invoice.userId))) return res.status(404).json({ message: 'Invoice not found' });
+    }
     res.json(invoice);
   } catch (e) { next(e); }
 };
@@ -113,6 +120,14 @@ export const getUnifiedInvoiceById = async (req, res, next) => {
 // Create unified invoice
 export const createUnifiedInvoice = async (req, res, next) => {
   try {
+    const userType = req.body?.userType;
+    const userId = req.body?.userId;
+    if (userType && userId && req.user?.role !== 'owner' && req.user?.role !== 'superadmin') {
+      const target = await (userType === 'student' ? studentsSvc.getById(Number(userId)) : userType === 'teacher' ? teachersSvc.getById(Number(userId)) : userType === 'driver' ? driversSvc.getDriverById ? driversSvc.getDriverById(Number(userId)) : null : null);
+      if (!target) return res.status(404).json({ message: 'User not found' });
+      if (!assertResourceCampusAccess(req, target.campusId ?? req.user?.campusId)) return res.status(404).json({ message: 'User not found' });
+    }
+
     // Check if users exist first
     const { hasUsers } = await service.checkUsersExist({ campusId: req.user?.campusId });
     if (!hasUsers) {
@@ -130,6 +145,9 @@ export const createUnifiedInvoice = async (req, res, next) => {
 // Update unified invoice
 export const updateUnifiedInvoice = async (req, res, next) => {
   try {
+    const existing = await service.getUnifiedInvoiceById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Invoice not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Invoice not found' });
     const invoice = await service.updateUnifiedInvoice(req.params.id, req.body);
     if (!invoice) return res.status(404).json({ message: 'Invoice not found' });
     res.json(invoice);
@@ -139,6 +157,9 @@ export const updateUnifiedInvoice = async (req, res, next) => {
 // Delete unified invoice
 export const deleteUnifiedInvoice = async (req, res, next) => {
   try {
+    const existing = await service.getUnifiedInvoiceById(req.params.id);
+    if (!existing) return res.status(404).json({ message: 'Invoice not found' });
+    if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Invoice not found' });
     await service.deleteUnifiedInvoice(req.params.id);
     res.json({ success: true });
   } catch (e) { next(e); }

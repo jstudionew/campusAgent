@@ -52,7 +52,6 @@ import {
 // SMS Component Imports
 import AdminDashboard from './modules/admin/pages/Dashboard';
 import ParentAlerts from './modules/parent/pages/Alerts';
-import StudentsList from './modules/admin/pages/Students/StudentsList';
 import EditStudent from './modules/admin/pages/Students/EditStudent';
 import StudentProfile from './modules/admin/pages/Students/StudentProfile';
 import AttendanceMonitor from './modules/admin/pages/Attendance/AttendanceMonitor';
@@ -63,23 +62,11 @@ import QRAttendanceLogs from './modules/admin/pages/Attendance/QRAttendanceLogs'
 // Student Module Components
 import StudentListTest from './modules/students/StudentListTest';
 import StudentList from './modules/students/StudentList';
-import AddStudent from './modules/students/AddStudent';
 import StudentAttendance from './modules/students/StudentAttendance';
 // Other student components will be imported as they are developed
 
-// Placeholder component for pages under development
-const ComingSoon = () => (
-  <div style={{
-    display: 'flex',
-    justifyContent: 'center',
-    alignItems: 'center',
-    height: '100vh',
-    fontSize: '24px',
-    color: '#666'
-  }}>
-    Page Under Development
-  </div>
-);
+import ModernPlaceholder from './components/common/ModernPlaceholder';
+const ComingSoon = (props) => <ModernPlaceholder {...props} />;
 
 export const getSMSRoutes = () => {
   const adminMenu = [
@@ -146,13 +133,13 @@ export const getSMSRoutes = () => {
           name: 'Student List',
           layout: '/admin',
           path: '/students/list',
-          component: <StudentsList />,
+          component: lazy(() => import('./modules/admin/pages/Students/StudentsList')),
         },
         {
           name: 'Add Student',
           layout: '/admin',
           path: '/students/add',
-          component: <AddStudent />,
+          component: lazy(() => import('./modules/students/AddStudent')),
         },
         {
           name: 'Edit Student',
@@ -178,7 +165,7 @@ export const getSMSRoutes = () => {
           name: 'Student Attendance',
           layout: '/admin',
           path: '/students/attendance/:id',
-          component: <ComingSoon />,
+          component: <StudentAttendance />,
           hidden: true,
         },
         {
@@ -191,7 +178,7 @@ export const getSMSRoutes = () => {
           name: 'Student Performance',
           layout: '/admin',
           path: '/students/performance/:id',
-          component: <ComingSoon />,
+          component: lazy(() => import('./modules/admin/pages/Students/StudentPerformancePage')),
           hidden: true,
         },
         {

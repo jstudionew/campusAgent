@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import morgan from 'morgan';
+import rateLimit from 'express-rate-limit';
 import routes from './routes/index.js';
 import { notFoundHandler, errorHandler } from './middleware/error.js';
 import { loadEnv } from './config/env.js';
@@ -66,7 +67,26 @@ app.options('*', cors(corsOptions));
 
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+app.use((req, res, next) => {
+  res.setHeader('X-Content-Type-Options', 'nosniff');
+  res.setHeader('Referrer-Policy', 'no-referrer');
+  res.setHeader('X-Frame-Options', 'DENY');
+  res.setHeader('X-XSS-Protection', '1; mode=block');
+  next();
+});
 app.use(morgan('dev'));
+
+const authLimiter = rateLimit({
+  windowMs: 15 * 60 * 1000,
+  max: 20,
+  standardHeaders: true,
+  legacyHeaders: false,
+  message: { message: 'Too many authentication attempts. Please try again later.' },
+  skipSuccessfulRequests: false,
+});
+
+app.use('/api/auth/login', authLimiter);
+app.use('/api/auth/refresh', authLimiter);
 
 const healthCheckHandler = async (req, res) => {
   let dbOk = false;

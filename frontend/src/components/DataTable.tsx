@@ -87,8 +87,16 @@ export default function DataTable<T>({
   onRowClick,
   getRowId,
 }: DataTableProps<T>) {
-  const bg = useColorModeValue('white', 'gray.900');
-  const borderColor = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const bg = useColorModeValue('white', 'navy.800');
+  const borderColor = useColorModeValue('rgba(219, 234, 254, 0.8)', 'whiteAlpha.100');
+  const shadow = useColorModeValue('0 4px 20px rgba(37, 99, 235, 0.05)', '0 8px 24px rgba(0, 0, 0, 0.45)');
+  const theadBg = useColorModeValue('brand.50', 'whiteAlpha.50');
+  const rowHoverBg = useColorModeValue('rgba(238, 244, 255, 0.6)', 'whiteAlpha.100');
+  const headerTextColor = useColorModeValue('brand.700', 'brand.200');
+  const pageTextColor = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
+  const searchBg = useColorModeValue('white', 'navy.900');
+  const searchBorderColor = useColorModeValue('secondaryGray.200', 'whiteAlpha.200');
+  const filterBg = useColorModeValue('white', 'navy.900');
 
   const showFilters = useMemo(() => {
     if (!filters) return false;
@@ -112,12 +120,12 @@ export default function DataTable<T>({
   };
 
   return (
-    <Box bg={bg} borderWidth="1px" borderColor={borderColor} borderRadius="md" boxShadow="sm" overflow="hidden">
+    <Box bg={bg} borderWidth="1px" borderColor={borderColor} borderRadius="16px" boxShadow={shadow} overflow="hidden">
       {(search || pagination) ? (
-        <Flex px={4} py={3} justify="space-between" align="center" gap={3} flexWrap="wrap">
+        <Flex px={4} py={3} justify="space-between" align="center" gap={3} flexWrap="wrap" borderBottom="1px solid" borderColor={borderColor}>
           {search ? (
-            <HStack spacing={2} minW={{ base: 'full', md: '320px' }}>
-              <Box as={MdSearch} color={useColorModeValue('gray.400', 'gray.500')} />
+            <HStack spacing={2} minW={{ base: 'full', md: '300px' }}>
+              <Box as={MdSearch} color="brand.500" fontSize="20px" />
               <Input
                 aria-label="Search table"
                 value={localSearch}
@@ -126,17 +134,19 @@ export default function DataTable<T>({
                   setLocalSearch(v);
                   search.onChange(v);
                 }}
-                placeholder={search.placeholder || 'Search...'}
+                placeholder={search.placeholder || 'Search records...'}
                 size="sm"
-                bg={useColorModeValue('gray.50', 'whiteAlpha.100')}
+                borderRadius="10px"
+                bg={searchBg}
+                borderColor={searchBorderColor}
               />
             </HStack>
           ) : null}
 
           {pagination ? (
             <HStack spacing={2}>
-              <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
-                Page {pagination.pageIndex + 1} / {totalPages}
+              <Text fontSize="sm" color={pageTextColor}>
+                Page {pagination.pageIndex + 1} of {totalPages}
               </Text>
               {pagination.onPageSizeChange ? (
                 <Select
@@ -144,7 +154,8 @@ export default function DataTable<T>({
                   size="sm"
                   value={pagination.pageSize}
                   onChange={(e) => pagination.onPageSizeChange?.(Number(e.target.value))}
-                  w="92px"
+                  w="96px"
+                  borderRadius="8px"
                 >
                   {[10, 20, 50, 100].map((s) => (
                     <option key={s} value={s}>
@@ -158,6 +169,7 @@ export default function DataTable<T>({
                 size="sm"
                 icon={<MdChevronLeft />}
                 variant="outline"
+                borderRadius="8px"
                 isDisabled={pagination.pageIndex <= 0}
                 onClick={() => pagination.onPageChange(Math.max(0, pagination.pageIndex - 1))}
               />
@@ -166,6 +178,7 @@ export default function DataTable<T>({
                 size="sm"
                 icon={<MdChevronRight />}
                 variant="outline"
+                borderRadius="8px"
                 isDisabled={pagination.pageIndex >= totalPages - 1}
                 onClick={() => pagination.onPageChange(Math.min(totalPages - 1, pagination.pageIndex + 1))}
               />
@@ -175,15 +188,15 @@ export default function DataTable<T>({
       ) : null}
 
       <Box overflowX="auto">
-        <Table aria-label={ariaLabel || 'Data table'} size="sm">
-          <Thead bg={useColorModeValue('gray.50', 'whiteAlpha.100')}>
+        <Table aria-label={ariaLabel || 'Data table'} size="md">
+          <Thead bg={theadBg}>
             <Tr>
               {columns.map((c) => {
                 const isSorted = sort?.columnId === c.id;
                 return (
-                  <Th key={c.id} isNumeric={c.isNumeric}>
+                  <Th key={c.id} isNumeric={c.isNumeric} py={3.5} borderColor={borderColor}>
                     <HStack spacing={1}>
-                      <Text fontSize="xs" fontWeight={800} color={useColorModeValue('gray.700', 'gray.200')}>
+                      <Text fontSize="xs" fontWeight={800} color={headerTextColor} letterSpacing="0.4px">
                         {c.header}
                       </Text>
                       {c.sortable && sort ? (
@@ -192,11 +205,12 @@ export default function DataTable<T>({
                           size="xs"
                           variant="ghost"
                           icon={<MdSwapVert />}
+                          _hover={{ color: 'brand.500' }}
                           onClick={() => toggleSort(c.id)}
                         />
                       ) : null}
                       {isSorted ? (
-                        <Text fontSize="xs" color={useColorModeValue('gray.500', 'gray.400')}>
+                        <Text fontSize="xs" color="brand.500" fontWeight="700">
                           {sort?.direction === 'asc' ? '↑' : '↓'}
                         </Text>
                       ) : null}
@@ -210,7 +224,7 @@ export default function DataTable<T>({
                 {columns.map((c) => {
                   const f = c.filter;
                   return (
-                    <Th key={`${c.id}-filter`} isNumeric={c.isNumeric}>
+                    <Th key={`${c.id}-filter`} isNumeric={c.isNumeric} py={2} borderColor={borderColor}>
                       {filters && f ? (
                         f.type === 'select' ? (
                           <Select
@@ -218,7 +232,8 @@ export default function DataTable<T>({
                             size="sm"
                             value={filters.values[c.id] ?? ''}
                             onChange={(e) => filters.onChange(c.id, e.target.value)}
-                            bg={useColorModeValue('white', 'whiteAlpha.50')}
+                            bg={useColorModeValue('white', 'navy.900')}
+                            borderRadius="8px"
                           >
                             <option value="">{f.placeholder || 'All'}</option>
                             {f.options.map((opt) => (
@@ -234,7 +249,8 @@ export default function DataTable<T>({
                             value={filters.values[c.id] ?? ''}
                             onChange={(e) => filters.onChange(c.id, e.target.value)}
                             placeholder={f.placeholder || 'Filter...'}
-                            bg={useColorModeValue('white', 'whiteAlpha.50')}
+                            bg={useColorModeValue('white', 'navy.900')}
+                            borderRadius="8px"
                           />
                         )
                       ) : null}
@@ -249,17 +265,17 @@ export default function DataTable<T>({
               Array.from({ length: 6 }).map((_, i) => (
                 <Tr key={i}>
                   {columns.map((c) => (
-                    <Td key={c.id} isNumeric={c.isNumeric}>
-                      <Skeleton h="12px" />
+                    <Td key={c.id} isNumeric={c.isNumeric} borderColor={borderColor} py={3}>
+                      <Skeleton h="14px" borderRadius="4px" />
                     </Td>
                   ))}
                 </Tr>
               ))
             ) : data.length === 0 ? (
               <Tr>
-                <Td colSpan={columns.length}>
-                  <Box py={8} textAlign="center">
-                    <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')}>
+                <Td colSpan={columns.length} borderColor={borderColor}>
+                  <Box py={10} textAlign="center">
+                    <Text fontSize="sm" color={useColorModeValue('secondaryGray.600', 'secondaryGray.400')}>
                       {emptyText || 'No records found.'}
                     </Text>
                   </Box>
@@ -269,7 +285,8 @@ export default function DataTable<T>({
               data.map((row, idx) => (
                 <Tr
                   key={String(getRowId ? getRowId(row, idx) : idx)}
-                  _hover={{ bg: useColorModeValue('gray.50', 'whiteAlpha.100') }}
+                  _hover={{ bg: rowHoverBg }}
+                  transition="background-color 0.15s ease"
                   cursor={onRowClick ? 'pointer' : undefined}
                   onClick={onRowClick ? () => onRowClick(row) : undefined}
                   role={onRowClick ? 'button' : undefined}
@@ -277,7 +294,7 @@ export default function DataTable<T>({
                   {columns.map((c) => {
                     const content = c.cell ? c.cell(row) : c.accessor ? c.accessor(row) : (row as any)[c.id];
                     return (
-                      <Td key={c.id} isNumeric={c.isNumeric}>
+                      <Td key={c.id} isNumeric={c.isNumeric} borderColor={borderColor} py={3.5} fontSize="sm">
                         {content}
                       </Td>
                     );

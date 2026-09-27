@@ -33,21 +33,27 @@ function Sidebar(props) {
 
   let variantChange = "0.2s linear";
   let shadow = useColorModeValue(
-    "14px 17px 40px 4px rgba(112, 144, 176, 0.08)",
-    "unset"
+    "10px 14px 35px rgba(37, 99, 235, 0.05)",
+    "0 18px 45px rgba(0, 0, 0, 0.55)"
   );
-  // Chakra Color Mode
-  let sidebarBg = useColorModeValue("#e3edff", "rgba(11, 20, 55, 0.72)");
-  let sidebarBorder = useColorModeValue("#cfe0ff", "#f0f5ffe0");
+  // Chakra Color Mode - modern high-contrast glassmorphism
+  let sidebarBg = useColorModeValue(
+    "rgba(255, 255, 255, 0.92)",
+    "rgba(11, 19, 41, 0.92)"
+  );
+  let sidebarBorder = useColorModeValue(
+    "rgba(219, 234, 254, 0.9)",
+    "rgba(255, 255, 255, 0.08)"
+  );
   let sidebarMargins = "0px";
 
   // SIDEBAR
   return (
-    <Box display={{ sm: "none", xl: "block" }} w={`${sidebarWidth || 260}px`} h='100vh' position='fixed' top='0' left='0' overflow='hidden'>
+    <Box display={{ sm: "none", xl: "block" }} w={`${sidebarWidth || 260}px`} h='100vh' position='fixed' top='0' left='0' overflow='hidden' zIndex='1001'>
       <Box
         bg={sidebarBg}
-        backdropFilter='blur(18px)'
-        sx={{ WebkitBackdropFilter: 'blur(18px)' }}
+        backdropFilter='blur(20px)'
+        sx={{ WebkitBackdropFilter: 'blur(20px)' }}
         borderRightWidth='1px'
         borderRightStyle='solid'
         borderRightColor={sidebarBorder}
@@ -73,16 +79,20 @@ function Sidebar(props) {
 
 // FUNCTIONS
 export function SidebarResponsive(props) {
-  let sidebarBackgroundColor = useColorModeValue('rgba(227, 237, 255, 0.92)', 'rgba(11, 20, 55, 0.78)');
-  let sidebarBorderColor = useColorModeValue('rgba(255, 255, 255, 0.55)', 'rgba(255, 255, 255, 0.10)');
-  let menuColor = useColorModeValue("gray.400", "white");
-  // // SIDEBAR
+  let sidebarBackgroundColor = useColorModeValue(
+    'rgba(255, 255, 255, 0.96)',
+    'rgba(11, 19, 41, 0.96)'
+  );
+  let sidebarBorderColor = useColorModeValue(
+    'rgba(219, 234, 254, 0.9)',
+    'rgba(255, 255, 255, 0.08)'
+  );
+  let menuColor = useColorModeValue("secondaryGray.700", "white");
+  
   const { isOpen, onOpen, onClose } = useDisclosure();
   const btnRef = React.useRef();
 
   const { routes } = props;
-  // let isWindows = navigator.platform.startsWith("Win");
-  //  BRAND
 
   return (
     <Flex display={{ sm: "flex", xl: "none" }} alignItems='center'>
@@ -91,10 +101,11 @@ export function SidebarResponsive(props) {
           as={IoMenuOutline}
           color={menuColor}
           my='auto'
-          w='20px'
-          h='20px'
+          w='22px'
+          h='22px'
           me='10px'
-          _hover={{ cursor: "pointer" }}
+          _hover={{ cursor: "pointer", color: "brand.500" }}
+          transition="color 0.2s ease"
         />
       </Flex>
       <Drawer
@@ -102,22 +113,23 @@ export function SidebarResponsive(props) {
         onClose={onClose}
         placement={document.documentElement.dir === "rtl" ? "right" : "left"}
         finalFocusRef={btnRef}>
-        <DrawerOverlay />
+        <DrawerOverlay backdropFilter='blur(6px)' />
         <DrawerContent
           w='285px'
           maxW='285px'
           bg={sidebarBackgroundColor}
-          backdropFilter='blur(18px)'
-          sx={{ WebkitBackdropFilter: 'blur(18px)' }}
+          backdropFilter='blur(20px)'
+          sx={{ WebkitBackdropFilter: 'blur(20px)' }}
           borderRightWidth={document.documentElement.dir === "rtl" ? '0px' : '1px'}
           borderLeftWidth={document.documentElement.dir === "rtl" ? '1px' : '0px'}
           borderColor={sidebarBorderColor}
+          boxShadow="xl"
         >
           <DrawerCloseButton
             zIndex='3'
             onClose={onClose}
             _focus={{ boxShadow: "none" }}
-            _hover={{ boxShadow: "none" }}
+            _hover={{ color: "brand.500" }}
           />
           <DrawerBody maxW='285px' px='0rem' pb='0'>
             <Scrollbars
@@ -133,7 +145,6 @@ export function SidebarResponsive(props) {
     </Flex>
   );
 }
-// PROPS
 
 Sidebar.propTypes = {
   logoText: PropTypes.string,

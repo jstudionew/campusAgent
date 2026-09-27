@@ -57,9 +57,9 @@ import * as transportApi from '../../../services/api/transport';
 
 // 2. Line Chart Card (Premium Area Chart)
 const LineChartCard = ({ title, categories, series, height = 250, activeRange, onRangeChange }) => {
-  const bg = useColorModeValue('white', 'gray.800');
-  const borderColor = useColorModeValue('gray.100', 'gray.700');
-  const mainColor = useColorModeValue('#4318FF', '#7551FF');
+  const bg = useColorModeValue('white', 'navy.800');
+  const borderColor = useColorModeValue('rgba(219, 234, 254, 0.8)', 'whiteAlpha.100');
+  const mainColor = useColorModeValue('#2563EB', '#60A5FA');
 
   // Chart options (same as before)
   const chartOptions = {
@@ -349,7 +349,7 @@ export default function AdminDashboard() {
             subValue="82"
             note="Staff currently on duty"
             icon={FaChalkboardTeacher}
-            colorScheme="purple"
+            colorScheme="amber"
             trend="up"
             trendValue={2}
           />

@@ -1,4 +1,4 @@
-// Daily Traffic Dashboards Default
+// Daily Traffic Dashboards Default (Royal Blue Palette)
 
 export const barChartDataDailyTraffic = [
   {
@@ -32,9 +32,9 @@ export const barChartOptionsDailyTraffic = {
     labels: {
       show: true,
       style: {
-        colors: "#A3AED0",
-        fontSize: "14px",
-        fontWeight: "500",
+        colors: "#94A3B8",
+        fontSize: "13px",
+        fontWeight: "600",
       },
     },
     axisBorder: {
@@ -50,8 +50,8 @@ export const barChartOptionsDailyTraffic = {
     labels: {
       show: true,
       style: {
-        colors: "#CBD5E0",
-        fontSize: "14px",
+        colors: "#94A3B8",
+        fontSize: "13px",
       },
     },
   },
@@ -74,18 +74,18 @@ export const barChartOptionsDailyTraffic = {
     gradient: {
       type: "vertical",
       shadeIntensity: 1,
-      opacityFrom: 0.7,
-      opacityTo: 0.9,
+      opacityFrom: 0.8,
+      opacityTo: 0.95,
       colorStops: [
         [
           {
             offset: 0,
-            color: "#4318FF",
+            color: "#2563EB",
             opacity: 1,
           },
           {
             offset: 100,
-            color: "rgba(67, 24, 255, 1)",
+            color: "rgba(37, 99, 235, 1)",
             opacity: 0.28,
           },
         ],
@@ -97,13 +97,13 @@ export const barChartOptionsDailyTraffic = {
   },
   plotOptions: {
     bar: {
-      borderRadius: 10,
-      columnWidth: "40px",
+      borderRadius: 8,
+      columnWidth: "36px",
     },
   },
 };
 
-// Consumption Users Reports
+// Consumption Users Reports (Multi-tone Royal Blue, Teal, Amber)
 
 export const barChartDataConsumption = [
   {
@@ -146,9 +146,9 @@ export const barChartOptionsConsumption = {
     labels: {
       show: true,
       style: {
-        colors: "#A3AED0",
-        fontSize: "14px",
-        fontWeight: "500",
+        colors: "#94A3B8",
+        fontSize: "13px",
+        fontWeight: "600",
       },
     },
     axisBorder: {
@@ -164,15 +164,15 @@ export const barChartOptionsConsumption = {
     labels: {
       show: false,
       style: {
-        colors: "#A3AED0",
-        fontSize: "14px",
-        fontWeight: "500",
+        colors: "#94A3B8",
+        fontSize: "13px",
+        fontWeight: "600",
       },
     },
   },
 
   grid: {
-    borderColor: "rgba(163, 174, 208, 0.3)",
+    borderColor: "rgba(148, 163, 184, 0.2)",
     show: true,
     yaxis: {
       lines: {
@@ -191,18 +191,18 @@ export const barChartOptionsConsumption = {
   },
   fill: {
     type: "solid",
-    colors: ["#5E37FF", "#6AD2FF", "#E1E9F8"],
+    colors: ["#2563EB", "#0D9488", "#E2E8F0"],
   },
   legend: {
     show: false,
   },
-  colors: ["#5E37FF", "#6AD2FF", "#E1E9F8"],
+  colors: ["#2563EB", "#0D9488", "#E2E8F0"],
   dataLabels: {
     enabled: false,
   },
   plotOptions: {
     bar: {
-      borderRadius: 10,
+      borderRadius: 6,
       columnWidth: "20px",
     },
   },
@@ -210,7 +210,7 @@ export const barChartOptionsConsumption = {
 
 export const pieChartOptions = {
   labels: ["Your files", "System", "Empty"],
-  colors: ["#4318FF", "#6AD2FF", "#EFF4FB"],
+  colors: ["#2563EB", "#F59E0B", "#E2E8F0"],
   chart: {
     width: "50px",
   },
@@ -239,7 +239,7 @@ export const pieChartOptions = {
     },
   },
   fill: {
-    colors: ["#4318FF", "#6AD2FF", "#EFF4FB"],
+    colors: ["#2563EB", "#F59E0B", "#E2E8F0"],
   },
   tooltip: {
     enabled: true,
@@ -269,18 +269,18 @@ export const lineChartOptionsTotalSpent = {
     },
     dropShadow: {
       enabled: true,
-      top: 13,
+      top: 10,
       left: 0,
-      blur: 10,
-      opacity: 0.1,
-      color: "#4318FF",
+      blur: 8,
+      opacity: 0.15,
+      color: "#2563EB",
     },
   },
-  colors: ["#4318FF", "#39B8FF"],
+  colors: ["#2563EB", "#F59E0B"],
   markers: {
     size: 0,
     colors: "white",
-    strokeColors: "#7551FF",
+    strokeColors: "#1D4ED8",
     strokeWidth: 3,
     strokeOpacity: 0.9,
     strokeDashArray: 0,
@@ -301,15 +301,16 @@ export const lineChartOptionsTotalSpent = {
   stroke: {
     curve: "smooth",
     type: "line",
+    width: 3,
   },
   xaxis: {
     type: "numeric",
     categories: ["SEP", "OCT", "NOV", "DEC", "JAN", "FEB"],
     labels: {
       style: {
-        colors: "#A3AED0",
+        colors: "#94A3B8",
         fontSize: "12px",
-        fontWeight: "500",
+        fontWeight: "600",
       },
     },
     axisBorder: {
@@ -328,9 +329,9 @@ export const lineChartOptionsTotalSpent = {
   grid: {
     show: false,
     column: {
-      color: ["#7551FF", "#39B8FF"],
-      opacity: 0.5,
+      color: ["#2563EB", "#F59E0B"],
+      opacity: 0.2,
     },
   },
-  color: ["#7551FF", "#39B8FF"],
+  color: ["#2563EB", "#F59E0B"],
 };

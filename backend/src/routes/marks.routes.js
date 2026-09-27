@@ -1,6 +1,6 @@
 import { Router } from 'express';
 import { body, query } from 'express-validator';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 import * as controller from '../controllers/marks.controller.js';
 
@@ -10,6 +10,7 @@ router.post(
   '/bulk-upsert',
   authenticate,
   authorize('admin', 'teacher', 'owner', 'superadmin'),
+  requirePermission('marks', 'edit'),
   [
     body('examId').isInt({ min: 1 }),
     body('items').isArray({ min: 1 }),
@@ -25,6 +26,7 @@ router.post(
 router.get(
   '/entries',
   authenticate,
+  requirePermission('marks', 'view'),
   [
     query('examId').isInt({ min: 1 }),
     query('className').isString().trim().notEmpty(),
@@ -38,6 +40,7 @@ router.get(
 router.get(
   '/result-card',
   authenticate,
+  requirePermission('marks', 'view'),
   [query('studentId').isInt({ min: 1 }), query('examId').isInt({ min: 1 })],
   validate,
   controller.getResultCard

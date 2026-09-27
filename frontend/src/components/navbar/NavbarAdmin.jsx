@@ -9,29 +9,8 @@ export default function AdminNavbar(props) {
 	const [scrolled, setScrolled] = useState(false);
 	const { toggleSidebar } = useContext(SidebarContext) || {};
 	const sidebarWidth = toggleSidebar ? 80 : 260;
+	const { secondary, message, brandText } = props;
 
-	useEffect(() => {
-		window.addEventListener('scroll', changeNavbar);
-
-		return () => {
-			window.removeEventListener('scroll', changeNavbar);
-		};
-	});
-
-	const { secondary, message } = props;
-
-	// Here are all the props that may change depending on navbar's type or state.(secondary, variant, scrolled)
-	let mainText = useColorModeValue('navy.700', 'white');
-	let secondaryText = useColorModeValue('gray.700', 'white');
-	let navbarPosition = 'fixed';
-	let navbarFilter = 'none';
-	let navbarBackdrop = 'blur(20px)';
-	let navbarShadow = 'none';
-	let navbarBg = useColorModeValue('rgba(244, 247, 254, 0.2)', 'rgba(11,20,55,0.5)');
-	let navbarBorder = 'transparent';
-	let secondaryMargin = '0px';
-	let paddingX = '15px';
-	let gap = '0px';
 	const changeNavbar = () => {
 		if (window.scrollY > 1) {
 			setScrolled(true);
@@ -40,31 +19,53 @@ export default function AdminNavbar(props) {
 		}
 	};
 
+	useEffect(() => {
+		window.addEventListener('scroll', changeNavbar);
+
+		return () => {
+			window.removeEventListener('scroll', changeNavbar);
+		};
+	}, []);
+	const theme = useColorModeValue(
+		{
+			mainText: 'secondaryGray.900',
+			navbarBg: scrolled ? 'rgba(255, 255, 255, 0.85)' : 'rgba(240, 245, 255, 0.2)',
+			navbarBorder: scrolled ? 'rgba(219, 234, 254, 0.7)' : 'transparent',
+			navbarShadow: scrolled ? '0 4px 20px rgba(37, 99, 235, 0.05)' : 'none',
+		},
+		{
+			mainText: 'white',
+			navbarBg: scrolled ? 'rgba(11, 19, 41, 0.85)' : 'rgba(11, 19, 41, 0.4)',
+			navbarBorder: scrolled ? 'rgba(255, 255, 255, 0.08)' : 'transparent',
+			navbarShadow: scrolled ? '0 4px 20px rgba(0, 0, 0, 0.4)' : 'none',
+		}
+	);
+
+	const mainText = theme.mainText;
+	const navbarPosition = 'fixed';
+	const navbarBackdrop = 'blur(20px)';
+	const navbarBg = theme.navbarBg;
+	const navbarBorder = theme.navbarBorder;
+	const navbarShadow = theme.navbarShadow;
+	const paddingX = '15px';
+
 	return (
 		<Box
 			position={navbarPosition}
 			boxShadow={navbarShadow}
 			zIndex='1000'
 			bg={navbarBg}
+			borderBottom='1px solid'
 			borderColor={navbarBorder}
-			filter={navbarFilter}
 			backdropFilter={navbarBackdrop}
-			backgroundPosition='center'
-			backgroundSize='cover'
-			borderRadius='0px 0px 0px 0px'
-			borderWidth='0px'
-			borderStyle='solid'
-			transitionDelay='0s, 0s, 0s, 0s'
-			transitionDuration=' 0.25s, 0.25s, 0.25s, 0s'
-			transitionProperty='box-shadow, background-color, filter, border'
-			transitionTimingFunction='linear, linear, linear, linear'
+			sx={{ WebkitBackdropFilter: navbarBackdrop }}
+			transition='all 0.25s ease'
 			alignItems={{ xl: 'center' }}
 			display={secondary ? 'block' : 'flex'}
 			minH='75px'
 			justifyContent={{ xl: 'center' }}
 			lineHeight='25.6px'
 			mx='auto'
-			mt={secondaryMargin}
 			pb='8px'
 			right={{ base: '12px', md: '30px', lg: '30px', xl: '0px' }}
 			px={{
@@ -72,7 +73,7 @@ export default function AdminNavbar(props) {
 				md: '10px'
 			}}
 			ps={{
-				xl: '12px'
+				xl: '16px'
 			}}
 			pt='8px'
 			top='0px'
@@ -91,27 +92,16 @@ export default function AdminNavbar(props) {
 					md: 'row'
 				}}
 				alignItems={{ xl: 'center' }}
-				mb={gap}>
+				gap='8px'>
 				<Box mb={{ sm: '8px', md: '0px' }}>
-					{/* Navbar brand based on route name */}
-					<Link
+					<Text
 						color={mainText}
-						href='#'
-						bg='inherit'
-						borderRadius='inherit'
-						fontWeight='bold'
-						fontSize='34px'
-						_hover={{ color: mainText }}
-						_active={{
-							bg: 'inherit',
-							transform: 'none',
-							borderColor: 'transparent'
-						}}
-						_focus={{
-							boxShadow: 'none'
-						}}>
-						CampusAgent
-					</Link>
+						fontWeight='800'
+						fontSize={{ base: '20px', md: '26px' }}
+						letterSpacing='-0.5px'
+					>
+						{brandText && brandText !== 'Default Brand Text' ? brandText : 'CampusAgent'}
+					</Text>
 				</Box>
 				<Box ms='auto' w={{ sm: '100%', md: 'unset' }}>
 					<AdminNavbarLinks

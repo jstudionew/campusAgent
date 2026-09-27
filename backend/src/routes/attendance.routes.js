@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as controller from '../controllers/attendance.controller.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
@@ -25,6 +25,7 @@ router.get(
   '/daily',
   authenticate,
   authorize('admin', 'teacher', 'owner'),
+  requirePermission('attendance', 'view'),
   [
     query('date').isISO8601({ strict: false }),
     query('class').optional().isString(),
@@ -39,6 +40,7 @@ router.post(
   '/daily',
   authenticate,
   authorize('admin', 'teacher', 'owner'),
+  requirePermission('attendance', 'take'),
   [
     body('date').isISO8601({ strict: false }),
     body('records').isArray({ min: 1 }),
@@ -62,6 +64,7 @@ router.post(
   '/',
   authenticate,
   authorize('admin', 'teacher', 'owner'),
+  requirePermission('attendance', 'take'),
   [
     body('studentId').customSanitizer((v) => (typeof v === 'number' ? v : parseInt(v, 10))).isInt().toInt(),
     body('date').isISO8601({ strict: false }),
@@ -76,6 +79,7 @@ router.put(
   '/:id',
   authenticate,
   authorize('admin', 'teacher', 'owner'),
+  requirePermission('attendance', 'edit'),
   [param('id').isInt()],
   validate,
   controller.update
@@ -85,6 +89,7 @@ router.delete(
   '/:id',
   authenticate,
   authorize('admin', 'owner'),
+  requirePermission('attendance', 'edit'),
   [param('id').isInt()],
   validate,
   controller.remove

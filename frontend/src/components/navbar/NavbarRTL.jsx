@@ -9,6 +9,15 @@ export default function AdminNavbar(props) {
   const [scrolled, setScrolled] = useState(false);
   const { toggleSidebar } = useContext(SidebarContext) || {};
   const sidebarWidth = toggleSidebar ? 80 : 260;
+  const { secondary, message } = props;
+
+  const changeNavbar = () => {
+    if (window.scrollY > 1) {
+      setScrolled(true);
+    } else {
+      setScrolled(false);
+    }
+  };
 
   useEffect(() => {
     window.addEventListener("scroll", changeNavbar);
@@ -16,9 +25,7 @@ export default function AdminNavbar(props) {
     return () => {
       window.removeEventListener("scroll", changeNavbar);
     };
-  });
-
-  const { secondary, message } = props;
+  }, []);
 
   // Here are all the props that may change depending on navbar's type or state.(secondary, variant, scrolled)
   let mainText = useColorModeValue("navy.700", "white");
@@ -35,13 +42,6 @@ export default function AdminNavbar(props) {
   let secondaryMargin = "0px";
   let paddingX = "15px";
   let gap = "0px";
-  const changeNavbar = () => {
-    if (window.scrollY > 1) {
-      setScrolled(true);
-    } else {
-      setScrolled(false);
-    }
-  };
 
   return (
     <Box

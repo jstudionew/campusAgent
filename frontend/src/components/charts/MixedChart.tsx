@@ -1,11 +1,7 @@
-import React, { Suspense, useMemo } from 'react';
-import { Box, Skeleton, Text, useColorModeValue } from '@chakra-ui/react';
+import React, { useMemo } from 'react';
+import { Box, Text, useColorModeValue } from '@chakra-ui/react';
+import ReactApexChart from 'react-apexcharts';
 import type { ApexOptions } from 'apexcharts';
-
-const LazyApexChart: React.ComponentType<any> = React.lazy(async () => {
-  const mod: any = await import('react-apexcharts');
-  return { default: mod.default };
-}) as any;
 
 export type MixedChartProps = {
   series: any;
@@ -52,9 +48,7 @@ export default function MixedChart({ series, categories, height = 320, stacked, 
   return (
     <Box aria-label={ariaLabel || 'Mixed chart'} role="img">
       {hasData ? (
-        <Suspense fallback={<Skeleton h={`${height}px`} w="100%" borderRadius="md" />}>
-          <LazyApexChart options={mergedOptions as any} series={series as any} type="line" height={height} width="100%" />
-        </Suspense>
+        <ReactApexChart options={mergedOptions as any} series={series as any} type="line" height={height} width="100%" />
       ) : (
         <Text fontSize="sm">No data available.</Text>
       )}

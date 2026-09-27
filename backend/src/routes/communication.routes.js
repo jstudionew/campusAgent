@@ -1,7 +1,7 @@
 import { Router } from 'express';
 import { body, param, query } from 'express-validator';
 import * as controller from '../controllers/communication.controller.js';
-import { authenticate, authorize } from '../middleware/auth.js';
+import { authenticate, authorize, requirePermission } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
 
 const router = Router();
@@ -13,18 +13,19 @@ router.post(
   '/announcements',
   authenticate,
   authorize('admin'),
+  requirePermission('communication', 'send'),
   [body('title').isString().notEmpty(), body('message').isString().notEmpty(), body('audience').optional().isString()],
   validate,
   controller.createAnnouncement
 );
-router.put('/announcements/:id', authenticate, authorize('admin'), [param('id').isInt()], validate, controller.updateAnnouncement);
-router.delete('/announcements/:id', authenticate, authorize('admin'), [param('id').isInt()], validate, controller.deleteAnnouncement);
+router.put('/announcements/:id', authenticate, authorize('admin'), requirePermission('communication', 'send'), [param('id').isInt()], validate, controller.updateAnnouncement);
+router.delete('/announcements/:id', authenticate, authorize('admin'), requirePermission('communication', 'send'), [param('id').isInt()], validate, controller.deleteAnnouncement);
 
 // Alerts
 router.get('/alerts', authenticate, controller.listAlerts);
 router.get('/alerts/:id', authenticate, [param('id').isInt()], validate, controller.getAlertById);
-router.post('/alerts', authenticate, authorize('admin'), [body('message').isString().notEmpty(), body('severity').optional().isIn(['info','warning','critical'])], validate, controller.createAlert);
-router.put('/alerts/:id', authenticate, authorize('admin'), [param('id').isInt()], validate, controller.updateAlert);
-router.delete('/alerts/:id', authenticate, authorize('admin'), [param('id').isInt()], validate, controller.deleteAlert);
+router.post('/alerts', authenticate, authorize('admin'), requirePermission('communication', 'send'), [body('message').isString().notEmpty(), body('severity').optional().isIn(['info','warning','critical'])], validate, controller.createAlert);
+router.put('/alerts/:id', authenticate, authorize('admin'), requirePermission('communication', 'send'), [param('id').isInt()], validate, controller.updateAlert);
+router.delete('/alerts/:id', authenticate, authorize('admin'), requirePermission('communication', 'send'), [param('id').isInt()], validate, controller.deleteAlert);
 
 export default router;

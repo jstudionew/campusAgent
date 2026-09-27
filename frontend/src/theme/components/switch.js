@@ -1,4 +1,5 @@
 import { mode } from "@chakra-ui/theme-tools";
+
 export const switchStyles = {
   components: {
     Switch: {
@@ -8,6 +9,8 @@ export const switchStyles = {
           borderRadius: "50%",
           w: "16px",
           h: "16px",
+          bg: "white",
+          boxShadow: "0 1px 3px rgba(0,0,0,0.2)",
           _checked: { transform: "translate(20px, 0px)" },
         },
         track: {
@@ -18,19 +21,28 @@ export const switchStyles = {
           h: "20px",
           p: "2px",
           ps: "2px",
+          borderRadius: "20px",
+          bg: "secondaryGray.300",
+          _checked: {
+            bg: "brand.500",
+          },
           _focus: {
-            boxShadow: "none",
+            boxShadow: "0 0 0 2px rgba(37, 99, 235, 0.4)",
           },
         },
       },
-
       variants: {
         main: (props) => ({
           track: {
-            bg: mode("gray.300", "navy.700")(props),
+            bg: mode("secondaryGray.300", "navy.700")(props),
+            _checked: {
+              bg: "brand.500",
+            },
           },
         }),
       },
     },
   },
 };
+
+export default switchStyles;

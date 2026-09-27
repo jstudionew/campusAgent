@@ -19,6 +19,7 @@ export default function FeeCollection() {
   const [selected, setSelected] = useState(null);
   const { isOpen, onOpen, onClose } = useDisclosure();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
 
   const summary = useMemo(() => {
     const billed = mockRows.reduce((s, r) => s + r.billed, 0);
@@ -109,7 +110,7 @@ export default function FeeCollection() {
                 const outstanding = r.billed - r.collected - r.refunds;
                 const rate = Math.round((r.collected / r.billed) * 100);
                 return (
-                  <Tr key={r.class} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={r.class} _hover={{ bg: rowHoverBg }}>
                     <Td><Badge colorScheme='blue'>{r.class}</Badge></Td>
                     <Td isNumeric>Rs. {r.billed.toLocaleString()}</Td>
                     <Td isNumeric>Rs. {r.collected.toLocaleString()}</Td>
