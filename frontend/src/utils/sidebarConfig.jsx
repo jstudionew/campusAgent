@@ -16,7 +16,7 @@ import {
   MdAssessment,
   MdPayment,
 } from 'react-icons/md';
-import { ADMIN_LAYOUT_ROLES } from '../contexts/AuthContext';
+import { ADMIN_LAYOUT_ROLES } from '../config/authRoles';
 
 // Function to get sidebar routes based on user role
 export const getSidebarRoutes = (role) => {

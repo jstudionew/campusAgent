@@ -102,7 +102,7 @@ export default defineConfig({
             return 'pdf';
           }
 
-          return 'vendor';
+          return undefined;
         },
       },
     },
