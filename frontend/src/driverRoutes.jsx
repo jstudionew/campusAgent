@@ -27,7 +27,7 @@ import ShiftAttendance from './modules/drivers/ShiftAttendance';
 import DriverCommunications from './modules/drivers/DriverCommunications';
 import DriverDocuments from './modules/drivers/DriverDocuments';
 import DriverSalary from './modules/drivers/DriverSalary';
-import DriverSettings from './modules/drivers/DriverSettings';
+import AccountSettings from './modules/account/AccountSettings';
 import SMSLogin from './modules/authentication/Login';
 
 const driverRoutes = [
@@ -35,6 +35,7 @@ const driverRoutes = [
     name: 'Dashboard',
     layout: '/driver',
     path: '/dashboard',
+    alwaysAllow: true,
     icon: <Icon as={MdHome} width="20px" height="20px" color="inherit" />,
     component: <DriverDashboard />,
   },
@@ -56,6 +57,7 @@ const driverRoutes = [
     name: 'Student Pickup/Drop',
     layout: '/driver',
     path: '/pickup-drop',
+    enabled: false,
     icon: <Icon as={MdPeople} width="20px" height="20px" color="inherit" />,
     component: <PickupDrop />,
   },
@@ -63,6 +65,7 @@ const driverRoutes = [
     name: 'Vehicle Checklist',
     layout: '/driver',
     path: '/checklist',
+    enabled: false,
     icon: <Icon as={MdListAlt} width="20px" height="20px" color="inherit" />,
     component: <VehicleChecklist />,
   },
@@ -70,6 +73,7 @@ const driverRoutes = [
     name: 'Incidents & Safety',
     layout: '/driver',
     path: '/incidents',
+    enabled: false,
     icon: <Icon as={MdReportProblem} width="20px" height="20px" color="inherit" />,
     component: <IncidentsSafety />,
   },
@@ -77,6 +81,7 @@ const driverRoutes = [
     name: 'Shift & Attendance',
     layout: '/driver',
     path: '/shift',
+    enabled: false,
     icon: <Icon as={MdAccessTime} width="20px" height="20px" color="inherit" />,
     component: <ShiftAttendance />,
   },
@@ -84,6 +89,7 @@ const driverRoutes = [
     name: 'Communications',
     layout: '/driver',
     path: '/communications',
+    enabled: false,
     icon: <Icon as={MdMessage} width="20px" height="20px" color="inherit" />,
     component: <DriverCommunications />,
   },
@@ -91,6 +97,7 @@ const driverRoutes = [
     name: 'Documents',
     layout: '/driver',
     path: '/documents',
+    enabled: false,
     icon: <Icon as={MdDescription} width="20px" height="20px" color="inherit" />,
     component: <DriverDocuments />,
   },
@@ -105,8 +112,9 @@ const driverRoutes = [
     name: 'Settings',
     layout: '/driver',
     path: '/settings',
+    alwaysAllow: true,
     icon: <Icon as={MdSettings} width="20px" height="20px" color="inherit" />,
-    component: <DriverSettings />,
+    component: <AccountSettings />,
   },
   {
     name: 'Sign In',

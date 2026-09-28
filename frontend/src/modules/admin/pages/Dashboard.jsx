@@ -1,5 +1,5 @@
 
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import {
   Box,
   Button,
@@ -17,7 +17,6 @@ import {
   HStack,
   Icon,
   useColorModeValue,
-  useToast,
   Avatar,
   Spacer
 } from '@chakra-ui/react';
@@ -52,6 +51,8 @@ import { formatNumber, formatCurrency, getStatusColor, formatDate, formatTime } 
 // API
 import * as dashboardApi from '../../../services/api/dashboard';
 import * as transportApi from '../../../services/api/transport';
+import { useAuth } from '../../../contexts/AuthContext';
+import usePolling from '../../../hooks/usePolling';
 
 // --- Custom Components ---
 
@@ -133,7 +134,7 @@ const LineChartCard = ({ title, categories, series, height = 250, activeRange, o
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
-  const toast = useToast();
+  const { user } = useAuth();
 
   const busCardBg = useColorModeValue('gray.50', 'whiteAlpha.50');
   const busCardHoverBg = useColorModeValue('blue.50', 'blue.900');
@@ -141,90 +142,74 @@ export default function AdminDashboard() {
 
   // -- State --
   const [loading, setLoading] = useState(true);
-  const [overview, setOverview] = useState({
-    totalStudents: 0,
-    totalTeachers: 0,
-    activeBuses: 0,
-    todayAttendance: 0, // Fallback
-    studentStats: { total: 0, present: 0, absent: 0, late: 0, leave: 0 },
-    teacherStats: { total: 0, present: 0, absent: 0, late: 0, leave: 0 },
-    recentAlerts: []
-  });
+  const [overview, setOverview] = useState(null);
   const [buses, setBuses] = useState([]);
   const [attendanceWeekly, setAttendanceWeekly] = useState([]);
   const [feesMonthly, setFeesMonthly] = useState([]);
   const [attRange, setAttRange] = useState('7d');
   const [feeRange, setFeeRange] = useState('1y');
+  const [loadError, setLoadError] = useState(false);
 
-  // -- Effects --
-  useEffect(() => {
-    const load = async () => {
-      try {
-        setLoading(true);
-        const [overviewRes, busesRes, attRes, feesRes] = await Promise.all([
-          dashboardApi.getOverview(),
-          transportApi.listBuses(),
-          dashboardApi.getAttendanceWeekly({ range: attRange }),
-          dashboardApi.getFeesMonthly({ range: feeRange }),
-        ]);
+  usePolling(async () => {
+    try {
+      const [overviewRes, busesRes, attRes, feesRes] = await Promise.all([
+        dashboardApi.getOverview(),
+        transportApi.listBuses(),
+        dashboardApi.getAttendanceWeekly({ range: attRange }),
+        dashboardApi.getFeesMonthly({ range: feeRange }),
+      ]);
 
-        const ovData = overviewRes?.data || {};
-        setOverview({
-          totalStudents: Number(ovData.totalStudents) || 0,
-          totalTeachers: Number(ovData.totalTeachers) || 0,
-          activeBuses: Number(ovData.activeBuses) || 0,
-          todayAttendance: Number(ovData.todayAttendance) || 0,
-          studentStats: ovData.studentStats || { total: 0, present: 0, absent: 0, late: 0, leave: 0 },
-          teacherStats: ovData.teacherStats || { total: 0, present: 0, absent: 0, late: 0, leave: 0 },
-          recentAlerts: Array.isArray(ovData.recentAlerts) ? ovData.recentAlerts : [],
-        });
-
-        // Buses
-        const busItems = Array.isArray(busesRes?.items) ? busesRes.items : (Array.isArray(busesRes) ? busesRes : []);
-        setBuses(busItems);
-
-        // Attendance
-        const attItems = Array.isArray(attRes?.data) ? attRes.data : (Array.isArray(attRes) ? attRes : []);
-        setAttendanceWeekly(attItems);
-
-        // Fees
-        const feeItems = Array.isArray(feesRes?.data) ? feesRes.data : (Array.isArray(feesRes) ? feesRes : []);
-        setFeesMonthly(feeItems);
-
-      } catch (e) {
-        console.error("Dashboard load failed", e);
-      } finally {
-        setLoading(false);
-      }
-    };
-    load();
-  }, [attRange, feeRange]); // Reload when ranges change
+      const ovData = overviewRes?.data;
+      if (!ovData) throw new Error('Dashboard overview response is missing data');
+      setOverview({
+        totalStudents: Number(ovData.totalStudents) || 0,
+        totalTeachers: Number(ovData.totalTeachers) || 0,
+        activeBuses: Number(ovData.activeBuses) || 0,
+        studentStats: ovData.studentStats || null,
+        teacherStats: ovData.teacherStats || null,
+        recentAlerts: Array.isArray(ovData.recentAlerts) ? ovData.recentAlerts : [],
+      });
+      setBuses(Array.isArray(busesRes?.items) ? busesRes.items : (Array.isArray(busesRes) ? busesRes : []));
+      setAttendanceWeekly(Array.isArray(attRes?.data) ? attRes.data : (Array.isArray(attRes) ? attRes : []));
+      setFeesMonthly(Array.isArray(feesRes?.data) ? feesRes.data : (Array.isArray(feesRes) ? feesRes : []));
+      setLoadError(false);
+    } catch (error) {
+      console.error('Dashboard refresh failed', error);
+      setLoadError(true);
+    } finally {
+      setLoading(false);
+    }
+  }, 30000);
 
   // -- Data Processing for Charts --
-  const studentStats = overview.studentStats || { total: 0, present: 0, absent: 0, late: 0, leave: 0 };
-  const teacherStats = overview.teacherStats || { total: 0, present: 0, absent: 0, late: 0, leave: 0 };
+  const studentStats = overview?.studentStats || { total: 0, present: 0, absent: 0, late: 0, leave: 0 };
+  const teacherStats = overview?.teacherStats || { total: 0, present: 0, absent: 0, late: 0, leave: 0 };
 
   // Calculate percentages
-  const calcPct = (present, total) => total > 0 ? Math.round((present / total) * 100) : 0;
+  const calcPct = (present, total) => total > 0 ? Math.round((present / total) * 100) : null;
 
   const studentAttPct = calcPct(studentStats.present + studentStats.late, studentStats.total); // Late counts as present-ish for overview
-  const teacherAttPct = calcPct(teacherStats.present + teacherStats.late, teacherStats.total);
 
   const studentPie = {
-    series: [studentStats.present, studentStats.absent, studentStats.late, studentStats.leave],
+    series: overview && studentStats.total > 0
+      ? [studentStats.present, studentStats.absent, studentStats.late, studentStats.leave]
+      : [],
     labels: ['Present', 'Absent', 'Late', 'Leave'],
     colors: ['#01B574', '#EE5D50', '#FFB547', '#A3AED0']
   };
 
   const teacherPie = {
-    series: [teacherStats.present, teacherStats.absent, teacherStats.late, teacherStats.leave],
+    series: overview && teacherStats.total > 0
+      ? [teacherStats.present, teacherStats.absent, teacherStats.late, teacherStats.leave]
+      : [],
     labels: ['Present', 'Absent', 'Late', 'Leave'],
     colors: ['#01B574', '#EE5D50', '#FFB547', '#A3AED0']
   };
 
   const attendanceBars = useMemo(() => {
     return (attendanceWeekly || []).map((d) => {
-      const pct = (Number(d.present) || 0);
+      const present = Number(d.present) || 0;
+      const total = Number(d.total) || 0;
       const dateObj = new Date(d.day);
       let dayLabel = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
       // If range is large (1y), showing full date might be better, or month name
@@ -233,12 +218,12 @@ export default function AdminDashboard() {
       } else if (attRange === '1m') {
         dayLabel = dateObj.getDate(); // Just day number for 30 days
       }
-      return { day: dayLabel, value: pct };
+      return { day: dayLabel, value: total > 0 ? Math.round((present / total) * 100) : null };
     });
   }, [attendanceWeekly, attRange]);
 
   const activitySeries = useMemo(() => {
-    return attendanceBars.map(d => d.value);
+    return attendanceBars.map(d => d.value).filter(Number.isFinite);
   }, [attendanceBars]);
 
   const feeMonths = useMemo(() => {
@@ -253,9 +238,9 @@ export default function AdminDashboard() {
     const totalCollected = (feesMonthly || []).reduce((sum, m) => sum + Number(m.collected || 0), 0);
     const totalPending = (feesMonthly || []).reduce((sum, m) => sum + Number(m.pending || 0), 0);
     const total = totalCollected + totalPending;
-    const rate = total > 0 ? Math.round((totalCollected / total) * 100) : 0;
+    const rate = total > 0 ? Math.round((totalCollected / total) * 100) : null;
     return {
-      series: [totalCollected, totalPending],
+      series: total > 0 ? [totalCollected, totalPending] : [],
       labels: ['Collected', 'Pending'],
       rate,
     };
@@ -271,7 +256,7 @@ export default function AdminDashboard() {
     'radial-gradient(at 0% 0%, hsla(210, 30%, 20%, 1) 0, transparent 50%), radial-gradient(at 100% 0%, hsla(220, 30%, 20%, 1) 0, transparent 50%)'
   );
 
-  const recentAlerts = overview.recentAlerts || [];
+  const recentAlerts = overview?.recentAlerts || [];
 
   return (
     <Box
@@ -305,21 +290,20 @@ export default function AdminDashboard() {
               display='inline-flex'
               alignItems='center'
             >
-              Good Morning, Super Admin <Text as="span" bgClip="initial" ml="2">👋</Text>
+              Welcome, {user?.name || user?.username || 'User'} <Text as="span" bgClip="initial" ml="2">👋</Text>
             </Text>
             <Text fontSize='lg' color='gray.500' fontWeight='600' opacity={0.8}>
-              Your school is performing exceptionally today.
+              Live school overview. Metrics refresh automatically every 30 seconds.
             </Text>
           </VStack>
           <HStack spacing='25px'>
             <Box textAlign='right' display={{ base: 'none', md: 'block' }}>
               <Text fontSize='sm' fontWeight='800' color='blue.600'>{formatDate(new Date())}</Text>
-              <Text fontSize='xs' color='gray.400' fontWeight='700' textTransform="uppercase">Term II • 2024-25</Text>
             </Box>
             <Avatar
               size='lg'
-              name='Admin User'
-              src=''
+              name={user?.name || user?.username || 'User'}
+              src={user?.avatar || ''}
               border='4px solid'
               borderColor='white'
               boxShadow="xl"
@@ -328,48 +312,46 @@ export default function AdminDashboard() {
             />
           </HStack>
         </Flex>
+        {loadError && (
+          <Alert status='warning' borderRadius='12px' mb='20px'>
+            <AlertIcon />
+            <AlertDescription>
+              Dashboard refresh failed. Any values still shown may be from the previous successful refresh.
+            </AlertDescription>
+          </Alert>
+        )}
 
         {/* --- Section 1: Top Stats Cards (Premium) --- */}
         <SimpleGrid columns={{ base: 1, md: 2, xl: 4 }} spacing='24px' mb='30px' px='10px'>
           <StatCard
             title="Total Students"
-            value={formatNumber(overview.totalStudents)}
+            value={loading ? '—' : formatNumber(overview?.totalStudents ?? 0)}
             valueFontSize='3xl'
-            subValue="+42"
-            note="Active this academic year"
+            note="Active student records"
             icon={FaUserGraduate}
             colorScheme="blue"
-            trend="up"
-            trendValue={5}
           />
           <StatCard
             title="Total Teachers"
-            value={formatNumber(overview.totalTeachers)}
+            value={loading ? '—' : formatNumber(overview?.totalTeachers ?? 0)}
             valueFontSize='3xl'
-            subValue="82"
-            note="Staff currently on duty"
+            note="Active teacher records"
             icon={FaChalkboardTeacher}
             colorScheme="amber"
-            trend="up"
-            trendValue={2}
           />
           <StatCard
             title="Active Buses"
-            value={overview.activeBuses}
-            note="Vehicles currently in transit"
+            value={loading ? '—' : formatNumber(overview?.activeBuses ?? 0)}
+            note="Active vehicle records"
             icon={FaBus}
             colorScheme="cyan"
-            trend="up"
-            trendValue={0}
           />
           <StatCard
             title="Avg Student Attendance"
-            value={`${studentAttPct}%`}
+            value={studentAttPct == null ? '—' : `${studentAttPct}%`}
             note="Across all classes today"
             icon={MdCheckCircle}
             colorScheme="green"
-            trend="up"
-            trendValue={3}
           />
         </SimpleGrid>
 
@@ -503,14 +485,14 @@ export default function AdminDashboard() {
           <Card p='24px'>
             <Flex justify='space-between' align='center' mb='16px'>
               <Text fontSize='lg' fontWeight='800'>Fee Split</Text>
-              <Badge colorScheme={feeDonut.rate >= 80 ? 'green' : 'orange'} borderRadius='8px' px='2'>
-                {feeDonut.rate}%
+              <Badge colorScheme={feeDonut.rate != null && feeDonut.rate >= 80 ? 'green' : 'orange'} borderRadius='8px' px='2'>
+                {feeDonut.rate == null ? 'No fee data' : `${feeDonut.rate}%`}
               </Badge>
             </Flex>
             <Text fontSize='sm' color={subtleText} mb='20px'>
               Collected vs Pending breakdown.
             </Text>
-            <PieChart
+            {feeDonut.series.length > 0 ? <PieChart
               type="donut"
               height={240}
               chartData={feeDonut.series}
@@ -520,27 +502,36 @@ export default function AdminDashboard() {
                 colors: ['#4318FF', '#FFAE1F'],
                 plotOptions: { pie: { donut: { size: '75%' } } }
               }}
-            />
+            /> : (
+              <Text fontSize='sm' color={subtleText} textAlign='center' py='12'>
+                No fee invoices are available for this period.
+              </Text>
+            )}
           </Card>
 
           {/* Card 3: Weekly Activity Sparkline */}
           <Card p='24px'>
             <Flex justify='space-between' align='center' mb='16px'>
-              <Text fontSize='lg' fontWeight='800'>Activity</Text>
-              <Badge colorScheme='blue' borderRadius='8px' px='2'>TRENDING</Badge>
+              <Text fontSize='lg' fontWeight='800'>Daily Attendance</Text>
             </Flex>
             <Text fontSize='sm' color={subtleText} mb='20px'>
-              Engagement trend for the past week.
+              Attendance percentage from marked records.
             </Text>
-            <Sparkline ariaLabel="Weekly activity trend" data={activitySeries} height={140} type="area" />
+            {activitySeries.length > 0 ? (
+              <Sparkline ariaLabel="Daily attendance percentage" data={activitySeries} height={140} type="area" />
+            ) : (
+              <Text fontSize='sm' color={subtleText} textAlign='center' py='12'>
+                No attendance records are available for this period.
+              </Text>
+            )}
             <Flex mt={6} justify='space-between' align='center'>
               <VStack align='start' spacing='0'>
                 <Text fontSize='10px' color='gray.400' fontWeight='700' textTransform='uppercase'>Minimum</Text>
-                <Text fontSize='sm' fontWeight='800'>{Math.min(...activitySeries)}%</Text>
+                <Text fontSize='sm' fontWeight='800'>{activitySeries.length ? `${Math.min(...activitySeries)}%` : '—'}</Text>
               </VStack>
               <VStack align='end' spacing='0'>
                 <Text fontSize='10px' color='gray.400' fontWeight='700' textTransform='uppercase'>Maximum</Text>
-                <Text fontSize='sm' fontWeight='800' color='blue.500'>{Math.max(...activitySeries)}%</Text>
+                <Text fontSize='sm' fontWeight='800' color='blue.500'>{activitySeries.length ? `${Math.max(...activitySeries)}%` : '—'}</Text>
               </VStack>
             </Flex>
           </Card>
@@ -554,7 +545,7 @@ export default function AdminDashboard() {
             <Flex justify='space-between' align='center' mb='24px'>
               <Box>
                 <Text fontSize='lg' fontWeight='800'>Transport Status</Text>
-                <Text fontSize='xs' color='gray.400'>Live bus tracking overview</Text>
+                <Text fontSize='xs' color='gray.400'>Active bus records</Text>
               </Box>
               <Button size='xs' variant='light' colorScheme='blue' borderRadius='8px' onClick={() => navigate('/admin/transport/buses')}>Manage</Button>
             </Flex>
@@ -613,7 +604,7 @@ export default function AdminDashboard() {
               <Text fontSize='lg' fontWeight='800' mb='20px'>System Alerts</Text>
               <VStack align='stretch' spacing='12px'>
                 {recentAlerts.length === 0 && (
-                  <Text fontSize='sm' color='gray.500'>System status normal. No alerts.</Text>
+                  <Text fontSize='sm' color='gray.500'>No alerts have been reported.</Text>
                 )}
                 {recentAlerts.slice(0, 3).map((alert) => (
                   <Alert key={alert.id} status={alert.severity === 'error' ? 'error' : 'info'} borderRadius='12px' fontSize='sm' variant='subtle'>

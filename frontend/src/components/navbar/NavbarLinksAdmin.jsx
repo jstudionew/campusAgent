@@ -23,13 +23,12 @@ import { useNavigate } from 'react-router-dom';
 // Assets
 import { MdNotificationsNone } from 'react-icons/md';
 import { IoMdMoon, IoMdSunny } from 'react-icons/io';
-import routes from '../../routes';
 import { useAuth } from '../../contexts/AuthContext';
 import { campusesApi } from '../../services/api';
 import CampusSwitcher from './CampusSwitcher';
 
 export default function HeaderLinks(props) {
-  const { secondary } = props;
+  const { routes = [] } = props;
   const { colorMode, toggleColorMode } = useColorMode();
   const { user, logout } = useAuth();
   const [campuses, setCampuses] = useState([]);
@@ -55,40 +54,44 @@ export default function HeaderLinks(props) {
     '0 12px 35px rgba(0, 0, 0, 0.45)',
   );
   
-  const displayName = (user?.name || user?.fullName || (user?.email ? user.email.split('@')[0] : '') || 'User').trim();
+  const displayName = (user?.name || user?.fullName || user?.username || (user?.email ? user.email.split('@')[0] : '') || 'User').trim();
   const firstName = displayName.split(' ')[0] || displayName;
 
   const handleProfileClick = () => {
     if (user?.role === 'teacher') {
       navigate('/teacher/settings/profile');
     } else if (user?.role === 'student') {
-      navigate('/student/settings/profile');
+      navigate('/student/settings/account');
     } else if (user?.role === 'driver') {
       navigate('/driver/settings');
     } else {
-      navigate('/admin/settings/system');
+      navigate('/admin/account-profile');
     }
   };
 
   const handleSecurityClick = () => {
     if (user?.role === 'teacher') {
-      navigate('/teacher/settings/password');
+      navigate('/teacher/settings/profile?section=security');
     } else if (user?.role === 'student') {
-      navigate('/student/settings/password');
+      navigate('/student/settings/account?section=security');
     } else if (user?.role === 'driver') {
-      navigate('/driver/settings');
+      navigate('/driver/settings?section=security');
     } else {
-      navigate('/admin/settings/users');
+      navigate('/admin/account-profile?section=security');
     }
   };
 
   return (
     <Flex
-      w={{ sm: '100%', md: 'auto' }}
+      w={{ base: '100%', md: 'auto' }}
+      maxW="100%"
+      minW={0}
       alignItems="center"
       flexDirection="row"
+      flexWrap={{ base: 'wrap', md: 'nowrap' }}
+      justifyContent={{ base: 'flex-end', md: 'flex-end' }}
+      gap={{ base: '8px', md: '6px' }}
       bg={menuBg}
-      flexWrap={secondary ? { base: 'wrap', md: 'nowrap' } : 'unset'}
       p="8px"
       borderRadius="20px"
       boxShadow={shadow}
@@ -96,13 +99,10 @@ export default function HeaderLinks(props) {
       borderColor={borderColor}
     >
       <SearchBar
-        mb={() => {
-          if (secondary) {
-            return { base: '10px', md: 'unset' };
-          }
-          return 'unset';
-        }}
-        me="10px"
+        routes={routes}
+        flex={{ base: '1 0 100%', md: '0 1 220px', lg: '0 1 240px' }}
+        minW={{ base: '0', md: '170px' }}
+        maxW={{ base: 'none', md: '260px' }}
         borderRadius="12px"
       />
 
@@ -202,6 +202,7 @@ export default function HeaderLinks(props) {
             transition="all 0.2s ease"
             color="white"
             name={displayName}
+            src={user?.avatar || undefined}
             bg="brand.500"
             size="sm"
             w="38px"
@@ -281,4 +282,5 @@ HeaderLinks.propTypes = {
   fixed: PropTypes.bool,
   secondary: PropTypes.bool,
   onOpen: PropTypes.func,
+  routes: PropTypes.arrayOf(PropTypes.object),
 };

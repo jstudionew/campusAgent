@@ -207,6 +207,14 @@ function TeacherList() {
     return 'gray';
   };
 
+  const toDateInputValue = (value) => {
+    if (value === undefined || value === null || value === '') return '';
+    if (typeof value === 'string') return value.slice(0, 10);
+
+    const date = value instanceof Date ? value : new Date(value);
+    return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
+  };
+
   const formatCurrency = (amount, currency = 'PKR') => {
     if (amount === null || amount === undefined || amount === '') return '-';
     const numeric = Number(amount);
@@ -228,7 +236,7 @@ function TeacherList() {
     classes: Array.isArray(teacher?.classes) ? teacher.classes.join(', ') : '',
     employmentStatus: teacher?.employmentStatus || teacher?.status || 'active',
     employmentType: teacher?.employmentType || '',
-    joiningDate: teacher?.joiningDate ? teacher.joiningDate.slice(0, 10) : '',
+    joiningDate: toDateInputValue(teacher?.joiningDate),
     experienceYears: teacher?.experienceYears ?? '',
     workHoursPerWeek: teacher?.workHoursPerWeek ?? '',
     baseSalary: teacher?.baseSalary ?? '',

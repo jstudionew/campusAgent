@@ -53,7 +53,7 @@ import FeeReceipts from './modules/students/fees/FeeReceipts';
 import Announcements from './modules/students/announcements/Announcements';
 
 import ProfileInfo from './modules/students/settings/ProfileInfo';
-import Password from './modules/students/settings/Password';
+import AccountSettings from './modules/account/AccountSettings';
 import StudentModulePlaceholder from './modules/students/StudentModulePlaceholder';
 
 const studentRoutes = [
@@ -61,6 +61,7 @@ const studentRoutes = [
     name: 'Dashboard',
     layout: '/student',
     path: '/dashboard',
+    alwaysAllow: true,
     icon: <Icon as={MdHome} width="20px" height="20px" color="inherit" />,
     component: <StudentDashboard />,
   },
@@ -219,6 +220,7 @@ const studentRoutes = [
     items: [
       {
         name: 'Notes',
+        enabled: false,
         layout: '/student',
         path: '/materials/notes',
         icon: <Icon as={MdBook} width="16px" height="16px" color="inherit" />,
@@ -226,6 +228,7 @@ const studentRoutes = [
       },
       {
         name: 'PDFs',
+        enabled: false,
         layout: '/student',
         path: '/materials/pdfs',
         icon: <Icon as={MdPictureAsPdf} width="16px" height="16px" color="inherit" />,
@@ -233,6 +236,7 @@ const studentRoutes = [
       },
       {
         name: 'Videos',
+        enabled: false,
         layout: '/student',
         path: '/materials/videos',
         icon: <Icon as={MdVideoLibrary} width="16px" height="16px" color="inherit" />,
@@ -240,6 +244,7 @@ const studentRoutes = [
       },
       {
         name: 'Resources',
+        enabled: false,
         layout: '/student',
         path: '/materials/resources',
         icon: <Icon as={MdBook} width="16px" height="16px" color="inherit" />,
@@ -315,6 +320,7 @@ const studentRoutes = [
     items: [
       {
         name: 'Events Calendar',
+        enabled: false,
         layout: '/student',
         path: '/events/calendar',
         icon: <Icon as={MdEvent} width="16px" height="16px" color="inherit" />,
@@ -322,6 +328,7 @@ const studentRoutes = [
       },
       {
         name: 'Competitions',
+        enabled: false,
         layout: '/student',
         path: '/events/competitions',
         icon: <Icon as={MdEmojiEvents} width="16px" height="16px" color="inherit" />,
@@ -329,6 +336,7 @@ const studentRoutes = [
       },
       {
         name: 'Workshops',
+        enabled: false,
         layout: '/student',
         path: '/events/workshops',
         icon: <Icon as={MdEvent} width="16px" height="16px" color="inherit" />,
@@ -346,6 +354,7 @@ const studentRoutes = [
     items: [
       {
         name: 'Issued Books',
+        enabled: false,
         layout: '/student',
         path: '/library/issued',
         icon: <Icon as={MdLibraryBooks} width="16px" height="16px" color="inherit" />,
@@ -353,6 +362,7 @@ const studentRoutes = [
       },
       {
         name: 'Due Dates',
+        enabled: false,
         layout: '/student',
         path: '/library/due-dates',
         icon: <Icon as={MdLibraryBooks} width="16px" height="16px" color="inherit" />,
@@ -360,6 +370,7 @@ const studentRoutes = [
       },
       {
         name: 'Fines',
+        enabled: false,
         layout: '/student',
         path: '/library/fines',
         icon: <Icon as={MdLibraryBooks} width="16px" height="16px" color="inherit" />,
@@ -376,9 +387,18 @@ const studentRoutes = [
     collapse: true,
     items: [
       {
+        name: 'Account Settings',
+        layout: '/student',
+        path: '/settings/account',
+        alwaysAllow: true,
+        icon: <Icon as={MdPerson} width="16px" height="16px" color="inherit" />,
+        component: <AccountSettings />,
+      },
+      {
         name: 'Profile Info',
         layout: '/student',
         path: '/settings/profile',
+        alwaysAllow: true,
         icon: <Icon as={MdPerson} width="16px" height="16px" color="inherit" />,
         component: <ProfileInfo />,
       },
@@ -386,8 +406,9 @@ const studentRoutes = [
         name: 'Password',
         layout: '/student',
         path: '/settings/password',
+        alwaysAllow: true,
         icon: <Icon as={MdLock} width="16px" height="16px" color="inherit" />,
-        component: <Password />,
+        component: <AccountSettings focusSecurity />,
       },
       /* Notifications (temporarily hidden)
       {

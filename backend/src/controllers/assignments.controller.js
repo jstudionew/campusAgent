@@ -45,13 +45,14 @@ export const getById = async (req, res, next) => {
     if (req.user?.role === 'student') {
       const self = await students.getByUserId(req.user.id);
       if (!self) return res.status(404).json({ message: 'Student profile not found' });
-      if (req.user?.campusId && a.campusId && Number(a.campusId) !== Number(req.user.campusId)) {
+      const studentCampusId = self.campusId || self.campus_id || req.user?.campusId;
+      if (a.campusId && (!studentCampusId || Number(a.campusId) !== Number(studentCampusId))) {
         return res.status(404).json({ message: 'Assignment not found' });
       }
-      if (a.class && String(a.class) !== String(self.class)) {
+      if (a.class && (!self.class || String(a.class) !== String(self.class))) {
         return res.status(403).json({ message: 'Forbidden' });
       }
-      if (a.section && String(a.section) !== String(self.section)) {
+      if (a.section && (!self.section || String(a.section) !== String(self.section))) {
         return res.status(403).json({ message: 'Forbidden' });
       }
     }
@@ -102,6 +103,19 @@ export const submitWork = async (req, res, next) => {
   try {
     const self = await students.getByUserId(req.user.id);
     if (!self) return res.status(404).json({ message: 'Student profile not found' });
+    const assignment = await assignments.getById(Number(req.params.id));
+    if (!assignment) return res.status(404).json({ message: 'Assignment not found' });
+    const studentCampusId = self.campusId || self.campus_id || req.user?.campusId;
+    if (assignment.campusId && (!studentCampusId || Number(assignment.campusId) !== Number(studentCampusId))) {
+      return res.status(404).json({ message: 'Assignment not found' });
+    }
+    if (assignment.class && (!self.class || String(assignment.class) !== String(self.class))) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+    if (assignment.section && (!self.section || String(assignment.section) !== String(self.section))) {
+      return res.status(403).json({ message: 'Forbidden' });
+    }
+
     const submission = await assignments.submitWork(Number(req.params.id), self.id, req.body);
     return res.status(201).json(submission);
   } catch (e) { next(e); }

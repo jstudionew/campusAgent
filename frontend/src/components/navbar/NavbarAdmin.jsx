@@ -1,5 +1,5 @@
 // Chakra Imports
-import { Box, Flex, Link, Text, useColorModeValue } from '@chakra-ui/react';
+import { Box, Flex, Text, useColorModeValue } from '@chakra-ui/react';
 import PropTypes from 'prop-types';
 import React, { useState, useEffect, useContext } from 'react';
 import { SidebarContext } from 'contexts/SidebarContext';
@@ -79,20 +79,21 @@ export default function AdminNavbar(props) {
 			top='0px'
 			left={{ base: '12px', md: '30px', lg: '30px', xl: `${sidebarWidth}px` }}
 			w={{
-				base: 'calc(100vw - 6%)',
-				md: 'calc(100vw - 8%)',
-				lg: 'calc(100vw - 6%)',
+				base: 'calc(100vw - 24px)',
+				md: 'calc(100vw - 60px)',
+				lg: 'calc(100vw - 60px)',
 				xl: 'auto',
 				'2xl': 'auto'
 			}}>
 			<Flex
 				w='100%'
 				flexDirection={{
-					sm: 'column',
+					base: 'column',
 					md: 'row'
 				}}
-				alignItems={{ xl: 'center' }}
-				gap='8px'>
+				alignItems={{ base: 'stretch', md: 'center' }}
+				flexWrap={{ base: 'nowrap', md: 'wrap' }}
+				gap={{ base: '8px', md: '12px' }}>
 				<Box mb={{ sm: '8px', md: '0px' }}>
 					<Text
 						color={mainText}
@@ -103,13 +104,18 @@ export default function AdminNavbar(props) {
 						{brandText && brandText !== 'Default Brand Text' ? brandText : 'CampusAgent'}
 					</Text>
 				</Box>
-				<Box ms='auto' w={{ sm: '100%', md: 'unset' }}>
+				<Box
+					ms={{ base: 0, md: 'auto' }}
+					w={{ base: '100%', md: 'auto' }}
+					minW={0}
+				>
 					<AdminNavbarLinks
 						onOpen={props.onOpen}
 						logoText={props.logoText}
 						secondary={props.secondary}
 						fixed={props.fixed}
 						scrolled={scrolled}
+						routes={props.routes}
 					/>
 				</Box>
 			</Flex>
@@ -123,5 +129,6 @@ AdminNavbar.propTypes = {
 	variant: PropTypes.string,
 	secondary: PropTypes.bool,
 	fixed: PropTypes.bool,
-	onOpen: PropTypes.func
+	onOpen: PropTypes.func,
+	routes: PropTypes.arrayOf(PropTypes.object)
 };

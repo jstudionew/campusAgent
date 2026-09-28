@@ -24,9 +24,8 @@ async function seed() {
       console.warn('[seed] OWNER_PASSWORD not set in production; falling back to the default owner password for this deployment. Set OWNER_PASSWORD to override it explicitly.');
     }
     {
-      const ownerHash = await bcrypt.hash(ownerPassword, 10);
       const { rows: existingOwner } = await client.query(
-        `SELECT id FROM users
+        `SELECT id, role FROM users
          WHERE LOWER(email) = LOWER($1)
             OR LOWER(COALESCE(username, '')) = LOWER($2)
             OR role = 'owner'
@@ -35,17 +34,27 @@ async function seed() {
         [ownerEmail, ownerUsername]
       );
       if (!existingOwner.length) {
+        const ownerHash = await bcrypt.hash(ownerPassword, 10);
         await client.query(
           'INSERT INTO users (username, email, password_hash, role, name, campus_id) VALUES ($1,$2,$3,$4,$5,1)',
           [ownerUsername, ownerEmail, ownerHash, 'owner', ownerName]
         );
         console.log('Seeded OWNER user:', ownerUsername, ownerEmail);
-      } else {
+      } else if (process.env.OWNER_SYNC_ON_BOOT?.toLowerCase() === 'true') {
+        if (existingOwner[0].role !== 'owner') {
+          throw new Error('Configured owner identity conflicts with a non-owner account; refusing to change its role.');
+        }
+        const ownerHash = await bcrypt.hash(ownerPassword, 10);
         await client.query(
-          'UPDATE users SET role=$2, password_hash=$3, name=$4, username=$5, email=$6 WHERE id=$1',
-          [existingOwner[0].id, 'owner', ownerHash, ownerName, ownerUsername, ownerEmail]
+          'UPDATE users SET password_hash=$2, name=$3, username=$4, email=$5 WHERE id=$1',
+          [existingOwner[0].id, ownerHash, ownerName, ownerUsername, ownerEmail]
         );
-        console.log('Updated OWNER user:', ownerUsername, ownerEmail);
+        console.log('Synchronized OWNER user from environment:', ownerUsername, ownerEmail);
+      } else {
+        if (existingOwner[0].role !== 'owner') {
+          throw new Error('Configured owner identity conflicts with a non-owner account; refusing to change its role.');
+        }
+        console.log('OWNER user already exists; preserving saved profile credentials.');
       }
     }
 

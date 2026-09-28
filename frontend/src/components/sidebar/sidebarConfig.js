@@ -306,25 +306,19 @@ export const sidebarPages = [
       {
         name: 'Academic Reports',
         layout: '/admin',
-        path: '/reports/academic',
+        path: '/reports/student/performance',
         icon: <Icon as={MdBarChart} width="16px" height="16px" color="inherit" />,
       },
       {
         name: 'Attendance Reports',
         layout: '/admin',
-        path: '/reports/attendance',
+        path: '/reports/attendance/daily',
         icon: <Icon as={MdBarChart} width="16px" height="16px" color="inherit" />,
       },
       {
         name: 'Financial Reports',
         layout: '/admin',
-        path: '/reports/financial',
-        icon: <Icon as={MdBarChart} width="16px" height="16px" color="inherit" />,
-      },
-      {
-        name: 'Custom Reports',
-        layout: '/admin',
-        path: '/reports/custom',
+        path: '/reports/financial/income',
         icon: <Icon as={MdBarChart} width="16px" height="16px" color="inherit" />,
       },
     ],

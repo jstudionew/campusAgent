@@ -128,7 +128,9 @@ export function useDashboardStats(initialParams = {}) {
         setParams(prev => ({ ...prev, ...newParams }));
     }, []);
 
-    return { loading, error, stats, params, updateParams, refresh: fetchStats };
+    const refresh = useCallback(() => fetchStats(), [fetchStats]);
+
+    return { loading, error, stats, params, updateParams, refresh };
 }
 
 export function useDashboardAnalytics(initialParams = {}) {

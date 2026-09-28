@@ -70,11 +70,20 @@ const ComingSoon = (props) => <ModernPlaceholder {...props} />;
 
 export const getSMSRoutes = () => {
   const adminMenu = [
+    {
+      name: 'My Profile',
+      layout: '/admin',
+      path: '/account-profile',
+      icon: <Icon as={MdPerson} width="20px" height="20px" color="inherit" />,
+      alwaysAllow: true,
+      component: lazy(() => import('./modules/account/AccountSettings')),
+    },
     // Dashboard
     {
       name: 'Dashboard',
       layout: '/admin',
       path: '/dashboard',
+      alwaysAllow: true,
       icon: <Icon as={MdHome} width="20px" height="20px" color="inherit" />,
       component: <AdminDashboard />,
     },
@@ -987,28 +996,10 @@ export const getSMSRoutes = () => {
           component: lazy(() => import('./modules/admin/pages/Reports/AttendanceAnalytics')),
         },
         {
-          name: 'Bus Usage',
-          layout: '/admin',
-          path: '/reports/bus-usage',
-          component: lazy(() => import('./modules/admin/pages/Reports/BusUsage')),
-        },
-        {
           name: 'Fee Collection',
           layout: '/admin',
           path: '/reports/fee-collection',
           component: lazy(() => import('./modules/admin/pages/Reports/FeeCollection')),
-        },
-        {
-          name: 'Teacher Performance',
-          layout: '/admin',
-          path: '/reports/teacher-performance',
-          component: lazy(() => import('./modules/admin/pages/Reports/TeacherPerformanceReport')),
-        },
-        {
-          name: 'Custom Reports',
-          layout: '/admin',
-          path: '/reports/custom',
-          component: lazy(() => import('./modules/admin/pages/Reports/CustomReports')),
         },
       ],
     },

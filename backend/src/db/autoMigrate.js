@@ -178,14 +178,37 @@ export async function ensurePayrollSchema() {
       ADD COLUMN IF NOT EXISTS account_title TEXT,
       ADD COLUMN IF NOT EXISTS account_number TEXT,
       ADD COLUMN IF NOT EXISTS iban TEXT,
-      ADD COLUMN IF NOT EXISTS cheque_number TEXT;
+      ADD COLUMN IF NOT EXISTS cheque_number TEXT,
+      ADD COLUMN IF NOT EXISTS campus_id INTEGER REFERENCES campuses(id) ON DELETE SET NULL;
 
     ALTER TABLE driver_payrolls
       ADD COLUMN IF NOT EXISTS bank_name TEXT,
       ADD COLUMN IF NOT EXISTS account_title TEXT,
       ADD COLUMN IF NOT EXISTS account_number TEXT,
       ADD COLUMN IF NOT EXISTS iban TEXT,
-      ADD COLUMN IF NOT EXISTS cheque_number TEXT;
+      ADD COLUMN IF NOT EXISTS cheque_number TEXT,
+      ADD COLUMN IF NOT EXISTS campus_id INTEGER REFERENCES campuses(id) ON DELETE SET NULL;
+
+    UPDATE teacher_payrolls payroll
+    SET campus_id = teacher.campus_id
+    FROM teachers teacher
+    WHERE payroll.teacher_id = teacher.id
+      AND payroll.campus_id IS NULL
+      AND teacher.campus_id IS NOT NULL;
+
+    UPDATE driver_payrolls payroll
+    SET campus_id = driver.campus_id
+    FROM drivers driver
+    WHERE payroll.driver_id = driver.id
+      AND payroll.campus_id IS NULL
+      AND driver.campus_id IS NOT NULL;
+
+    UPDATE finance_payments payment
+    SET campus_id = invoice.campus_id
+    FROM finance_invoices invoice
+    WHERE payment.invoice_id = invoice.id
+      AND payment.campus_id IS NULL
+      AND invoice.campus_id IS NOT NULL;
   `);
 }
 
@@ -501,6 +524,8 @@ export async function ensureAuthSchema() {
 
     -- Users: username and nullable email
     ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
     DO $$
     BEGIN
       IF NOT EXISTS (
@@ -944,6 +969,13 @@ export async function ensureCoreTableColumns() {
         END IF;
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='finance_invoices' AND column_name='invoice_type') THEN
           EXECUTE 'ALTER TABLE finance_invoices ADD COLUMN invoice_type TEXT DEFAULT ''fee''';
+        END IF;
+      END IF;
+
+      -- ===== FINANCE_PAYMENTS TABLE =====
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name='finance_payments') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='finance_payments' AND column_name='campus_id') THEN
+          EXECUTE 'ALTER TABLE finance_payments ADD COLUMN campus_id INTEGER REFERENCES campuses(id) ON DELETE SET NULL';
         END IF;
       END IF;
 

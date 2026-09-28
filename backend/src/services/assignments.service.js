@@ -142,19 +142,26 @@ export const listByStudent = async (student, { page = 1, pageSize = 50, q }) => 
   if (student.class) {
     params.push(student.class);
     where.push(`(a.class = $${params.length} OR a.class IS NULL)`);
+  } else {
+    where.push('a.class IS NULL');
   }
   if (student.section) {
     params.push(student.section);
     where.push(`(a.section = $${params.length} OR a.section IS NULL)`);
+  } else {
+    where.push('a.section IS NULL');
   }
 
   if (q) {
     params.push(`%${q.toLowerCase()}%`);
     where.push(`(LOWER(a.title) LIKE $${params.length} OR LOWER(a.description) LIKE $${params.length})`);
   }
-  if (student.campusId || student.campus_id) {
-    params.push(student.campusId || student.campus_id);
+  const campusId = student.campusId || student.campus_id;
+  if (campusId) {
+    params.push(campusId);
     where.push(`a.campus_id = $${params.length}`);
+  } else {
+    where.push('a.campus_id IS NULL');
   }
 
   const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';

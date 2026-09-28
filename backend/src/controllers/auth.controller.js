@@ -7,11 +7,39 @@ import * as parentsSvc from '../services/parents.service.js';
 import * as settingsSvc from '../services/settings.service.js';
 import { sanitizeUserResponse } from '../utils/privacy.js';
 import { appendAuditLog } from '../utils/audit.js';
+import cloudinary from '../config/cloudinary.js';
 import {
   DEFAULT_ALLOWED_MODULES,
   DEFAULT_OWNER_NAME,
   resolveOwnerConfig,
 } from '../config/brand.js';
+
+const BASE_PROFILE_FIELDS = ['name', 'username', 'email', 'phone', 'avatar'];
+const PROFESSIONAL_PROFILE_ROLES = new Set([
+  'owner',
+  'superadmin',
+  'admin',
+  'teacher',
+  'academic_coordinator',
+  'admissions',
+  'reception',
+  'office_staff',
+  'finance',
+  'finance_manager',
+  'hr_manager',
+  'hr',
+  'it_admin',
+  'it_support',
+  'library',
+  'transport',
+  'security',
+]);
+
+const getEditableProfileFields = (role) => (
+  PROFESSIONAL_PROFILE_ROLES.has(role)
+    ? [...BASE_PROFILE_FIELDS, 'jobTitle', 'department']
+    : [...BASE_PROFILE_FIELDS]
+);
 
 export const resolveLicensingState = ({ configuredValue, allowedModulesValue, fallbackModules = DEFAULT_ALLOWED_MODULES } = {}) => {
   let allowedModules = Array.isArray(fallbackModules) ? [...fallbackModules] : [];
@@ -111,7 +139,11 @@ export const login = async (req, res, next) => {
         username: ownerUser.username || ownerUsername,
         role: 'owner',
         name: ownerUser.name || ownerName,
-        campusId: ownerUser.campus_id
+        campusId: ownerUser.campus_id,
+        jobTitle: ownerUser.job_title,
+        department: ownerUser.department,
+        phone: ownerUser.phone,
+        avatar: ownerUser.avatar,
       };
       const token = signAccessToken(userPayload);
       const refreshToken = signRefreshToken({ id: ownerUser.id });
@@ -174,7 +206,9 @@ export const login = async (req, res, next) => {
       name: user.name,
       campusId: user.campus_id,
       jobTitle: user.job_title,
-      department: user.department
+      department: user.department,
+      phone: user.phone,
+      avatar: user.avatar,
     };
     const token = signAccessToken(userPayload);
     const refreshToken = signRefreshToken({ id: user.id });
@@ -502,7 +536,12 @@ export const refresh = async (req, res, next) => {
       email: user.email,
       role: user.role,
       name: user.name,
-      campusId: user.campus_id
+      campusId: user.campus_id,
+      username: user.username,
+      jobTitle: user.job_title,
+      department: user.department,
+      phone: user.phone,
+      avatar: user.avatar,
     };
     const token = signAccessToken(userPayload);
     const newRefresh = signRefreshToken({ id: user.id });
@@ -515,7 +554,7 @@ export const refresh = async (req, res, next) => {
 
 export const profile = async (req, res, next) => {
   try {
-    const user = await authService.findUserById(req.user.id);
+    const user = await authService.findOwnProfile(req.user.id);
     if (!user) return res.status(404).json({ message: 'User not found' });
     const userPayload = {
       id: user.id,
@@ -525,9 +564,183 @@ export const profile = async (req, res, next) => {
       name: user.name,
       campusId: user.campus_id,
       jobTitle: user.job_title,
-      department: user.department
+      department: user.department,
+      phone: user.phone,
+      avatar: user.avatar,
     };
-    return res.json({ user: userPayload });
+    return res.json({ user: userPayload, editableFields: getEditableProfileFields(user.role) });
+  } catch (e) {
+    next(e);
+  }
+};
+
+export const updateMyProfile = async (req, res, next) => {
+  try {
+    if (!req.body || typeof req.body !== 'object' || Array.isArray(req.body)) {
+      return res.status(400).json({ message: 'A profile update object is required' });
+    }
+
+    const requester = await authService.findUserById(req.user.id);
+    if (!requester) return res.status(404).json({ message: 'User not found' });
+    const allowedFields = getEditableProfileFields(requester.role);
+    const allowedKeys = new Set([...allowedFields, 'currentPassword', 'newPassword']);
+    const unsupportedFields = Object.keys(req.body).filter((key) => !allowedKeys.has(key));
+    if (unsupportedFields.length) {
+      return res.status(403).json({ message: 'One or more profile fields cannot be changed for this role' });
+    }
+
+    const updates = {};
+    for (const field of allowedFields) {
+      if (!Object.hasOwn(req.body, field)) continue;
+      const rawValue = req.body[field];
+      if (field === 'avatar') {
+        if (rawValue !== null && typeof rawValue !== 'string') {
+          return res.status(400).json({ message: 'Profile photo must be a URL or image file' });
+        }
+        updates.avatar = typeof rawValue === 'string' ? rawValue.trim() || null : null;
+        continue;
+      }
+      if (rawValue !== null && typeof rawValue !== 'string') {
+        return res.status(400).json({ message: `${field} must be a string` });
+      }
+      const value = typeof rawValue === 'string' ? rawValue.trim() : '';
+
+      if (field === 'name') {
+        if (!value || value.length > 120) {
+          return res.status(400).json({ message: 'Name must be between 1 and 120 characters' });
+        }
+        updates.name = value;
+      } else if (field === 'username') {
+        if (!/^[a-zA-Z0-9._-]{3,40}$/.test(value)) {
+          return res.status(400).json({ message: 'Username must be 3-40 characters using letters, numbers, dots, underscores, or hyphens' });
+        }
+        updates.username = value.toLowerCase();
+      } else if (field === 'email') {
+        const normalizedEmail = value.toLowerCase();
+        if (normalizedEmail && (normalizedEmail.length > 254 || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(normalizedEmail))) {
+          return res.status(400).json({ message: 'Enter a valid email address' });
+        }
+        updates.email = normalizedEmail || null;
+      } else if (field === 'phone') {
+        if (value.length > 32) return res.status(400).json({ message: 'Phone number must be 32 characters or fewer' });
+        updates.phone = value || null;
+      } else if (field === 'jobTitle' || field === 'department') {
+        if (value.length > 120) return res.status(400).json({ message: `${field} must be 120 characters or fewer` });
+        updates[field] = value || null;
+      }
+    }
+
+    const { currentPassword, newPassword } = req.body;
+    const isChangingPassword = currentPassword !== undefined || newPassword !== undefined;
+    if (isChangingPassword) {
+      if (typeof currentPassword !== 'string' || !currentPassword || typeof newPassword !== 'string') {
+        return res.status(400).json({ message: 'Current and new passwords are required to change your password' });
+      }
+      if (newPassword.length < 8 || newPassword.length > 128) {
+        return res.status(400).json({ message: 'New password must be between 8 and 128 characters' });
+      }
+
+      const credentials = await authService.findUserCredentialsById(req.user.id);
+      if (!credentials) return res.status(404).json({ message: 'User not found' });
+      const passwordMatches = await bcrypt.compare(currentPassword, credentials.password_hash || '');
+      if (!passwordMatches) return res.status(401).json({ message: 'Current password is incorrect' });
+      updates.passwordHash = await bcrypt.hash(newPassword, 12);
+    }
+
+    const profileFields = Object.keys(updates).filter((field) => field !== 'passwordHash');
+    if (profileFields.length === 0 && !isChangingPassword) {
+      return res.status(400).json({ message: 'No profile changes were provided' });
+    }
+
+    if (updates.username) {
+      const existing = await authService.findUserByUsername(updates.username);
+      if (existing && Number(existing.id) !== Number(req.user.id)) {
+        return res.status(409).json({ message: 'Username is already in use' });
+      }
+    }
+    if (updates.email) {
+      const existing = await authService.findUserByEmail(updates.email);
+      if (existing && Number(existing.id) !== Number(req.user.id)) {
+        return res.status(409).json({ message: 'Email is already in use' });
+      }
+    }
+
+    if (typeof updates.avatar === 'string' && updates.avatar.startsWith('data:')) {
+      const imageMatch = updates.avatar.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
+      if (!imageMatch || imageMatch[2].length > 2_800_000) {
+        return res.status(400).json({ message: 'Choose a PNG, JPEG, or WebP image no larger than 2 MB' });
+      }
+      if (!process.env.CLOUDINARY_CLOUD_NAME || !process.env.CLOUDINARY_API_KEY || !process.env.CLOUDINARY_API_SECRET) {
+        return res.status(503).json({ message: 'Profile photo uploads are not configured on this server' });
+      }
+      const upload = await cloudinary.uploader.upload(updates.avatar, {
+        folder: 'user-profiles',
+        resource_type: 'image',
+        transformation: [{ width: 512, height: 512, crop: 'limit', quality: 'auto', fetch_format: 'auto' }],
+      });
+      updates.avatar = upload.secure_url;
+    } else if (typeof updates.avatar === 'string') {
+      try {
+        const avatarUrl = new URL(updates.avatar);
+        if (avatarUrl.protocol !== 'https:' || avatarUrl.username || avatarUrl.password || updates.avatar.length > 2048) {
+          return res.status(400).json({ message: 'Profile photo URL must be a valid HTTPS URL' });
+        }
+      } catch {
+        return res.status(400).json({ message: 'Profile photo URL must be a valid HTTPS URL' });
+      }
+    }
+
+    let updated;
+    try {
+      updated = await authService.updateOwnProfile(req.user.id, updates, { expectedRole: requester.role });
+    } catch (error) {
+      if (error?.code === '23505') {
+        return res.status(409).json({ message: 'Username or email is already in use' });
+      }
+      if (error?.code === 'PROFILE_ROLE_CHANGED') {
+        return res.status(403).json({ message: error.message });
+      }
+      throw error;
+    }
+    if (!updated) return res.status(404).json({ message: 'User not found' });
+
+    await appendAuditLog({
+      actorId: req.user.id,
+      actorRole: requester.role,
+      action: 'profile_update',
+      entityType: 'user',
+      entityId: req.user.id,
+      campusId: requester.campus_id,
+      details: {
+        updatedFields: profileFields,
+        passwordChanged: isChangingPassword,
+      },
+      ipAddress: req.ip,
+      userAgent: req.headers['user-agent'],
+    });
+
+    const userPayload = {
+      id: updated.id,
+      email: updated.email,
+      username: updated.username,
+      role: updated.role,
+      name: updated.name,
+      campusId: updated.campus_id,
+      jobTitle: updated.job_title,
+      department: updated.department,
+      phone: updated.phone,
+      avatar: updated.avatar,
+    };
+    const token = signAccessToken(userPayload);
+    return res.json({
+      user: sanitizeUserResponse(userPayload, {
+        actorRole: requester.role,
+        actorId: req.user.id,
+        targetId: updated.id,
+      }),
+      editableFields: getEditableProfileFields(updated.role),
+      token,
+    });
   } catch (e) {
     next(e);
   }

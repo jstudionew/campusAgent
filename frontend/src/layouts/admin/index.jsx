@@ -11,6 +11,16 @@ import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import routes from 'routes.js';
 import testRoutes from '../../testRoutes';
 import { useAuth } from 'contexts/AuthContext';
+import { filterRoutesByAccess as applyRouteAccess } from '../../utils/filterRoutesByAccess';
+
+const TEST_ROUTE_ACCESS_PATHS = {
+  '/admin/students/list': '/students/list',
+  '/admin/students/add': '/students/add',
+  '/admin/students/attendance': '/attendance/daily',
+  '/admin/students/performance': '/students/performance',
+  '/admin/students/fees': '/fees/status',
+  '/admin/students/transport': '/transport/routes',
+};
 
 // Custom Chakra theme
 export default function Dashboard(props) {
@@ -141,72 +151,21 @@ export default function Dashboard(props) {
   const location = useLocation();
   const { user, moduleAccess, loading, campusId } = useAuth();
 
-  const filterRoutesByAccess = (allRoutes) => {
-    // Owner sees everything unfiltered, even during loading
-    if (user?.role === 'owner') return allRoutes;
-    // Superadmin sees all routes except ownerOnly routes
-    if (user?.role === 'superadmin') {
-      return allRoutes
-        .filter((r) => !r.ownerOnly)
-        .map((r) => {
-          if (r.collapse && r.items) {
-            return { ...r, items: r.items.filter((it) => !it.ownerOnly) };
-          }
-          return r;
-        });
-    }
-    // During auth loading, if no user yet, return all routes to prevent blank screen
-    if (!user) return allRoutes;
-    // Parent: show only Parent Portal group
-    if (user.role === 'parent') {
-      const pickParentPortal = (items) => items
-        .filter((r) => r.layout === '/admin' && r.name === 'Parent Portal')
-        .map((r) => ({ ...r }));
-      return pickParentPortal(allRoutes);
-    }
-
-    // For non-owner roles, when moduleAccess is missing or 'ALL', treat as allow all modules
-    const allowedModules = (!moduleAccess || moduleAccess.allowModules === 'ALL')
-      ? 'ALL'
-      : new Set(moduleAccess.allowModules || []);
-    const allowedSubroutes = new Set(
-      (!moduleAccess || moduleAccess.allowSubroutes === 'ALL')
-        ? ['ALL']
-        : (moduleAccess.allowSubroutes || [])
+  const effectiveRoutes = useMemo(
+    () => applyRouteAccess(routes, { layout: '/admin', moduleAccess, role: user?.role }),
+    [routes, moduleAccess, user?.role]
+  );
+  const accessibleTestRoutes = useMemo(() => {
+    const permissionRoutes = testRoutes.flatMap((route) => {
+      const path = TEST_ROUTE_ACCESS_PATHS[route.path];
+      return path ? [{ name: path, layout: '/admin', path }] : [];
+    });
+    const allowedPaths = new Set(
+      applyRouteAccess(permissionRoutes, { layout: '/admin', moduleAccess, role: user?.role })
+        .map((route) => route.path)
     );
-
-    const isModuleAllowed = (name) => (allowedModules === 'ALL') || allowedModules.has(name);
-    const isSubrouteAllowed = (subPath) => allowedSubroutes.has('ALL') || allowedSubroutes.has(subPath);
-
-    const filterTree = (items) => items
-      .map((r) => {
-        // Only include /admin items in Admin layout
-        if (r.layout !== '/admin') return null;
-        if (r.ownerOnly) return null;
-        if (r.collapse && r.items) {
-          if (!isModuleAllowed(r.name)) return null;
-          let inner = r.items || [];
-          if (user.role !== 'owner' && user.role !== 'superadmin') {
-            inner = inner.filter((it) => it.path !== '/settings/licensing');
-          }
-          inner = inner.filter((it) => !it.ownerOnly);
-          const filteredItems = inner.filter((it) => isSubrouteAllowed(it.path));
-          if (filteredItems.length === 0) return null;
-          return { ...r, items: filteredItems };
-        }
-        // Non-collapsible like Dashboard
-        if (!r.collapse && r.name) {
-          if (!isModuleAllowed(r.name)) return null;
-          return r;
-        }
-        return r;
-      })
-      .filter(Boolean);
-
-    return filterTree(allRoutes);
-  };
-
-  const effectiveRoutes = useMemo(() => filterRoutesByAccess(routes), [routes, moduleAccess, user]);
+    return testRoutes.filter((route) => allowedPaths.has(TEST_ROUTE_ACCESS_PATHS[route.path]));
+  }, [moduleAccess, user?.role]);
   const brandText = useMemo(() => getActiveRoute(routes), [location.pathname]);
   const secondary = useMemo(() => getActiveNavbar(routes), [location.pathname]);
   const message = useMemo(() => getActiveNavbarText(routes), [location.pathname]);
@@ -244,6 +203,7 @@ export default function Dashboard(props) {
                   brandText={brandText}
                   secondary={secondary}
                   message={message}
+                  routes={effectiveRoutes}
                   fixed={fixed}
                   {...rest}
                 />
@@ -285,7 +245,7 @@ export default function Dashboard(props) {
                     )}
                   
                   {/* Direct test routes */}
-                  {testRoutes.map((route, index) => (
+                  {accessibleTestRoutes.map((route, index) => (
                     <Route 
                       key={`test-route-${index}`} 
                       path={route.path.replace('/admin/', '')} 

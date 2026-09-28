@@ -9,6 +9,7 @@ import ErrorBoundary from '../../components/ErrorBoundary';
 import { Navigate, Route, Routes, useLocation } from 'react-router-dom';
 import getTeacherRoutes from '../../teacherRoutes';
 import { useAuth } from '../../contexts/AuthContext';
+import { filterRoutesByAccess as applyRouteAccess } from '../../utils/filterRoutesByAccess';
 
 export default function TeacherLayout(props) {
   const { ...rest } = props;
@@ -55,39 +56,10 @@ export default function TeacherLayout(props) {
 
   const routes = getTeacherRoutes();
 
-  const filterRoutesByAccess = (allRoutes) => {
-    // For non-owner roles, when moduleAccess is missing or 'ALL', treat as allow all modules
-    const allowedModules = (!moduleAccess || moduleAccess.allowModules === 'ALL')
-      ? 'ALL'
-      : new Set(moduleAccess.allowModules || []);
-    const allowedSubroutes = new Set(
-      (!moduleAccess || moduleAccess.allowSubroutes === 'ALL') ? ['ALL'] : (moduleAccess.allowSubroutes || [])
-    );
-
-    const isModuleAllowed = (name) => (allowedModules === 'ALL') || allowedModules.has(name);
-    const isSubrouteAllowed = (subPath) => allowedSubroutes.has('ALL') || allowedSubroutes.has(subPath);
-
-    const filterTree = (items) => items
-      .map((r) => {
-        if (r.layout !== '/teacher') return null;
-        if (r.collapse && r.items) {
-          if (!isModuleAllowed(r.name)) return null;
-          const filteredItems = (r.items || []).filter((it) => isSubrouteAllowed(it.path));
-          if (filteredItems.length === 0) return null;
-          return { ...r, items: filteredItems };
-        }
-        if (!r.collapse && r.name) {
-          if (!isModuleAllowed(r.name)) return null;
-          return r;
-        }
-        return r;
-      })
-      .filter(Boolean);
-
-    return filterTree(allRoutes);
-  };
-
-  const effectiveRoutes = useMemo(() => filterRoutesByAccess(routes), [routes, moduleAccess, user]);
+  const effectiveRoutes = useMemo(
+    () => applyRouteAccess(routes, { layout: '/teacher', moduleAccess, role: user?.role }),
+    [routes, moduleAccess, user?.role]
+  );
 
   const getRoutes = (routes) => {
     return routes
@@ -146,6 +118,7 @@ export default function TeacherLayout(props) {
                   brandText={brandText}
                   secondary={secondary}
                   message={message}
+                  routes={effectiveRoutes}
                   fixed={fixed}
                   {...rest}
                 />

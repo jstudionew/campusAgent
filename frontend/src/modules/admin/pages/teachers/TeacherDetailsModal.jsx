@@ -46,13 +46,34 @@ const classKey = (cls, idx) => {
   return `cls-${idx}`;
 };
 
+const formatInfoValue = (value) => {
+  if (value === undefined || value === null || value === '') return '-';
+  if (typeof value === 'string' || typeof value === 'number') return value;
+  if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+  if (Array.isArray(value)) {
+    const items = value.map(formatInfoValue).filter((item) => item !== '-');
+    return items.length ? items.join(', ') : '-';
+  }
+  if (typeof value === 'object') {
+    const displayValue = value.name ?? value.label ?? value.title ?? value.value ?? value.text;
+    if (displayValue !== undefined) return formatInfoValue(displayValue);
+    if (Object.keys(value).length === 0) return '-';
+    try {
+      return JSON.stringify(value);
+    } catch {
+      return '-';
+    }
+  }
+  return String(value);
+};
+
 const InfoItem = ({ label, value, textColor, textColorSecondary }) => (
   <Box>
     <Text fontSize="xs" color={textColorSecondary} textTransform="uppercase" letterSpacing="0.08em">
       {label}
     </Text>
     <Text fontWeight="600" color={textColor} mt={1} fontSize="sm">
-      {value || '-'}
+      {formatInfoValue(value)}
     </Text>
   </Box>
 );

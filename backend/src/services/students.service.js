@@ -384,19 +384,31 @@ export const updateTransport = async (studentId, { routeId, busId, pickupStopId,
 export const getDashboardStats = async (studentId) => {
   const stats = {
     todaysClasses: 0,
-    attendance: 0,
+    attendance: null,
     pendingAssignments: 0,
     upcomingExams: 0,
     notifications: 0
   };
 
-  try {
-    // Get student details first (class, section, user_id)
-    const { rows: studentRows } = await query('SELECT id, class, section, attendance, user_id FROM students WHERE id = $1', [studentId]);
-    if (!studentRows.length) return stats;
-    const student = studentRows[0];
+  const { rows: studentRows } = await query('SELECT id, class, section, user_id FROM students WHERE id = $1', [studentId]);
+  if (!studentRows.length) {
+    const error = new Error('Student profile not found');
+    error.status = 404;
+    throw error;
+  }
+  const student = studentRows[0];
 
-    stats.attendance = Number(student.attendance || 0);
+  const { rows: attendanceRows } = await query(
+    `SELECT COUNT(*) FILTER (WHERE status = 'present')::int AS present,
+            COUNT(*)::int AS total
+     FROM attendance_records
+     WHERE student_id = $1`,
+    [studentId]
+  );
+  const attendanceTotal = Number(attendanceRows[0]?.total || 0);
+  if (attendanceTotal > 0) {
+    stats.attendance = Math.round((Number(attendanceRows[0].present || 0) / attendanceTotal) * 100);
+  }
 
     // 1. Today's Classes
     const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
@@ -450,10 +462,6 @@ export const getDashboardStats = async (studentId) => {
         [student.user_id]
       );
       stats.notifications = notifRows[0]?.count || 0;
-    }
-
-  } catch (err) {
-    console.error('Error fetching student dashboard stats:', err);
   }
   return stats;
 };
@@ -482,7 +490,7 @@ export const getAttendanceTrend = async (studentId) => {
   return rows.map(r => {
     const total = Number(r.total_days);
     const present = Number(r.present_days);
-    return total > 0 ? Math.round((present / total) * 100) : 0;
+    return total > 0 ? Math.round((present / total) * 100) : null;
   });
 };
 

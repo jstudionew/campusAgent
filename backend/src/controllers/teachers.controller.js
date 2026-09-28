@@ -1,4 +1,5 @@
 import * as teachers from '../services/teachers.service.js';
+import * as students from '../services/students.service.js';
 import { query } from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import * as authSvc from '../services/auth.service.js';
@@ -335,6 +336,12 @@ export const listSchedules = async (req, res, next) => {
     if (req.user?.role === 'teacher') {
       const self = await teachers.getByUserId(req.user.id);
       teacherId = self?.id;
+    } else if (req.user?.role === 'student') {
+      const self = await students.getByUserId(req.user.id);
+      if (!self?.class || !self?.section) return res.json([]);
+      teacherId = undefined;
+      className = self.class;
+      section = self.section;
     }
     const schedules = await teachers.listSchedules({
       teacherId: teacherId ? Number(teacherId) : undefined,

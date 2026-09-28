@@ -43,7 +43,7 @@ import LeaveStatus from './modules/teachers/leaves/LeaveStatus';
 import LeaveHistory from './modules/teachers/leaves/LeaveHistory';
 import MonthlyPayslip from './modules/teachers/salary/MonthlyPayslip';
 import SalaryHistory from './modules/teachers/salary/History';
-import Password from './modules/teachers/settings/Password';
+import AccountSettings from './modules/account/AccountSettings';
 import SMSLogin from './modules/authentication/Login';
 
 const teacherRoutes = [
@@ -51,6 +51,7 @@ const teacherRoutes = [
     name: 'Dashboard',
     layout: '/teacher',
     path: '/dashboard',
+    alwaysAllow: true,
     icon: <Icon as={MdHome} width="20px" height="20px" color="inherit" />,
     component: <TeacherDashboard />,
   },
@@ -147,6 +148,7 @@ const teacherRoutes = [
       },
       {
         name: 'Parent Contacts',
+        enabled: false,
         layout: '/teacher',
         path: '/students/parents',
         icon: <Icon as={MdMessage} width="16px" height="16px" color="inherit" />,
@@ -171,6 +173,7 @@ const teacherRoutes = [
       },
       {
         name: 'Submissions',
+        enabled: false,
         layout: '/teacher',
         path: '/assignments/submissions',
         icon: <Icon as={MdAssignment} width="16px" height="16px" color="inherit" />,
@@ -178,6 +181,7 @@ const teacherRoutes = [
       },
       {
         name: 'Grading',
+        enabled: false,
         layout: '/teacher',
         path: '/assignments/grading',
         icon: <Icon as={MdGrade} width="16px" height="16px" color="inherit" />,
@@ -185,6 +189,7 @@ const teacherRoutes = [
       },
       {
         name: 'Late Report',
+        enabled: false,
         layout: '/teacher',
         path: '/assignments/late-report',
         icon: <Icon as={MdOutlineAnalytics} width="16px" height="16px" color="inherit" />,
@@ -223,6 +228,7 @@ const teacherRoutes = [
       },
       {
         name: 'Results Analytics',
+        enabled: false,
         layout: '/teacher',
         path: '/exams/analytics',
         icon: <Icon as={MdOutlineAnalytics} width="16px" height="16px" color="inherit" />,
@@ -240,6 +246,7 @@ const teacherRoutes = [
     items: [
       {
         name: 'Upload Notes',
+        enabled: false,
         layout: '/teacher',
         path: '/materials/upload',
         icon: <Icon as={MdUploadFile} width="16px" height="16px" color="inherit" />,
@@ -247,6 +254,7 @@ const teacherRoutes = [
       },
       {
         name: 'Videos',
+        enabled: false,
         layout: '/teacher',
         path: '/materials/videos',
         icon: <Icon as={MdVideoLibrary} width="16px" height="16px" color="inherit" />,
@@ -254,6 +262,7 @@ const teacherRoutes = [
       },
       {
         name: 'Manage Materials',
+        enabled: false,
         layout: '/teacher',
         path: '/materials/manage',
         icon: <Icon as={MdBook} width="16px" height="16px" color="inherit" />,
@@ -271,6 +280,7 @@ const teacherRoutes = [
     items: [
       {
         name: 'Daily Timetable',
+        enabled: false,
         layout: '/teacher',
         path: '/schedule/daily',
         icon: <Icon as={MdSchedule} width="16px" height="16px" color="inherit" />,
@@ -321,6 +331,7 @@ const teacherRoutes = [
     items: [
       {
         name: 'Apply Leave',
+        enabled: false,
         layout: '/teacher',
         path: '/leaves/apply',
         icon: <Icon as={MdBeachAccess} width="16px" height="16px" color="inherit" />,
@@ -328,6 +339,7 @@ const teacherRoutes = [
       },
       {
         name: 'Leave Status',
+        enabled: false,
         layout: '/teacher',
         path: '/leaves/status',
         icon: <Icon as={MdBeachAccess} width="16px" height="16px" color="inherit" />,
@@ -335,6 +347,7 @@ const teacherRoutes = [
       },
       {
         name: 'Leave History',
+        enabled: false,
         layout: '/teacher',
         path: '/leaves/history',
         icon: <Icon as={MdBeachAccess} width="16px" height="16px" color="inherit" />,
@@ -378,15 +391,17 @@ const teacherRoutes = [
         name: 'Profile',
         layout: '/teacher',
         path: '/settings/profile',
+        alwaysAllow: true,
         icon: <Icon as={MdSettings} width="16px" height="16px" color="inherit" />,
-        component: <TeacherModulePlaceholder title='Profile' subtitle='Coming soon' />,
+        component: <AccountSettings />,
       },
       {
         name: 'Password',
         layout: '/teacher',
         path: '/settings/password',
+        alwaysAllow: true,
         icon: <Icon as={MdLock} width="16px" height="16px" color="inherit" />,
-        component: <Password />,
+        component: <AccountSettings focusSecurity />,
       },
       /* Notifications (temporarily hidden)
       {

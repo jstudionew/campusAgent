@@ -76,10 +76,9 @@ export const AuthProvider = ({ children }) => {
       if (role === 'owner' || role === 'parent') { setModuleAccess({ allowModules: 'ALL', allowSubroutes: 'ALL' }); return; }
       const a = await rbacApi.getMyModules();
       setModuleAccess(a || { allowModules: [], allowSubroutes: [] });
-    } catch (_) {
-      // Keep previous module access if available; otherwise default to allow-all.
-      // This avoids blank screens on refresh when RBAC endpoint is temporarily unavailable.
-      setModuleAccess((prev) => prev || { allowModules: 'ALL', allowSubroutes: 'ALL' });
+    } catch (error) {
+      console.error('Failed to load role module access; restricted navigation remains hidden.', error);
+      setModuleAccess({ allowModules: [], allowSubroutes: [] });
     }
   }, []);
 
@@ -90,9 +89,11 @@ export const AuthProvider = ({ children }) => {
       lastUnauthorizedAt.current = now;
 
       const url = String(ctx?.url || '');
+      const method = String(ctx?.method || '').toUpperCase();
+      const isProfileMutation = url === '/auth/profile' && method === 'PUT';
 
       // If auth endpoints say unauthorized, the session is invalid.
-      if (url.startsWith('/auth/')) {
+      if (url.startsWith('/auth/') && !isProfileMutation) {
         logout({ skipRemote: true });
         return;
       }
@@ -292,14 +293,38 @@ export const AuthProvider = ({ children }) => {
 
   // Update user function
   const updateUser = useCallback((updates) => {
+    setUser((currentUser) => currentUser ? { ...currentUser, ...updates } : currentUser);
+  }, []);
+
+  const updateSession = useCallback(({ user: updatedUser, token, refreshToken } = {}) => {
+    if (token) {
+      setAuthToken(token);
+      try {
+        const useLocalStorage = localStorage.getItem(STORAGE_KEYS.AUTH_TOKEN) !== null;
+        const primary = useLocalStorage ? localStorage : sessionStorage;
+        const secondary = useLocalStorage ? sessionStorage : localStorage;
+        primary.setItem(STORAGE_KEYS.AUTH_TOKEN, token);
+        if (refreshToken) primary.setItem(STORAGE_KEYS.REFRESH_TOKEN, refreshToken);
+        secondary.removeItem(STORAGE_KEYS.AUTH_TOKEN);
+        secondary.removeItem(STORAGE_KEYS.REFRESH_TOKEN);
+      } catch (storageError) {
+        console.error('Unable to persist updated authentication tokens:', storageError);
+      }
+    }
+    if (updatedUser) updateUser(updatedUser);
+  }, [updateUser]);
+
+  useEffect(() => {
     if (!user) return;
-    const updatedUser = { ...user, ...updates };
-    setUser(updatedUser);
-    // Write to whichever storage currently holds user
-    const ls = localStorage.getItem(STORAGE_KEYS.USER_DATA);
-    const ss = sessionStorage.getItem(STORAGE_KEYS.USER_DATA);
-    if (ls !== null) localStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
-    if (ss !== null) sessionStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(updatedUser));
+    try {
+      const serializedUser = JSON.stringify(user);
+      const ls = localStorage.getItem(STORAGE_KEYS.USER_DATA);
+      const ss = sessionStorage.getItem(STORAGE_KEYS.USER_DATA);
+      if (ls !== null) localStorage.setItem(STORAGE_KEYS.USER_DATA, serializedUser);
+      if (ss !== null) sessionStorage.setItem(STORAGE_KEYS.USER_DATA, serializedUser);
+    } catch (storageError) {
+      console.error('Unable to persist updated account profile:', storageError);
+    }
   }, [user]);
 
   const clearError = () => setError(null);
@@ -312,6 +337,7 @@ export const AuthProvider = ({ children }) => {
     login,
     logout,
     updateUser,
+    updateSession,
     clearError,
     moduleAccess,
     refreshModuleAccess,

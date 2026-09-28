@@ -60,7 +60,14 @@ export default function Main() {
                     </ProtectedRoute>
                   }
                 />
-                <Route path="rtl/*" element={<RTLLayout theme={currentTheme} setTheme={setCurrentTheme} />} />
+                <Route
+                  path="rtl/*"
+                  element={
+                    <ProtectedRoute allowedRoles={['owner', ...ADMIN_LAYOUT_ROLES, 'parent']}>
+                      <RTLLayout theme={currentTheme} setTheme={setCurrentTheme} />
+                    </ProtectedRoute>
+                  }
+                />
                 <Route
                   path="driver/*"
                   element={

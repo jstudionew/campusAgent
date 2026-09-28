@@ -539,11 +539,11 @@ export const createUnifiedPayment = async (data, receivedBy = null) => {
   }
 
   const { rows } = await query(`
-    INSERT INTO finance_payments (invoice_id, user_type, user_id, amount, method, reference_number, notes, received_by)
-    VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-    RETURNING id, invoice_id AS "invoiceId", user_type AS "userType", user_id AS "userId",
+    INSERT INTO finance_payments (invoice_id, campus_id, user_type, user_id, amount, method, reference_number, notes, received_by)
+    VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+    RETURNING id, invoice_id AS "invoiceId", campus_id AS "campusId", user_type AS "userType", user_id AS "userId",
               amount, method, reference_number AS "referenceNumber", notes, paid_at AS "paidAt"
-  `, [invoiceId, invoice.userType, invoice.userId, amount, method || null, referenceNumber || null, notes || null, receivedBy]);
+  `, [invoiceId, invoice.campusId, invoice.userType, invoice.userId, amount, method || null, referenceNumber || null, notes || null, receivedBy]);
 
   // Update invoice balance
   const newBalance = Math.max(0, Number(invoice.balance) - Number(amount));

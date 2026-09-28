@@ -202,6 +202,7 @@ async function boot() {
         username: ownerUsername,
         password: ownerPassword,
         name: ownerName,
+        syncExisting: String(process.env.OWNER_SYNC_ON_BOOT || '').toLowerCase() === 'true',
       });
     }, Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 45000);
   } catch (e) {

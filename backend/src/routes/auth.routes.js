@@ -51,6 +51,7 @@ router.post(
 router.post('/logout', authenticate, authController.logout);
 router.post('/refresh', [body('refreshToken').isString()], validate, authController.refresh);
 router.get('/profile', authenticate, authController.profile);
+router.put('/profile', authenticate, authController.updateMyProfile);
 router.get('/users', authenticate, authController.getAllUsers);
 router.get('/users/:id', authenticate, authController.getUserById);
 router.put('/users/:id', authenticate, authorize('admin', 'owner', 'superadmin'), validate, authController.updateUser);

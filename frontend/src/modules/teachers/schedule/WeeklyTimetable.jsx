@@ -1,5 +1,7 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
+  AlertIcon,
   Box,
   Text,
   Flex,
@@ -24,18 +26,18 @@ import {
   ModalCloseButton,
   ModalBody,
   ModalFooter,
+  VStack,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdPrint, MdClass, MdAlarm, MdBook } from 'react-icons/md';
+import { MdRefresh, MdFileDownload, MdPrint, MdClass, MdBook } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import MiniStatistics from '../../../components/card/MiniStatistics';
 import IconBox from '../../../components/icons/IconBox';
 import BarChart from '../../../components/charts/BarChart';
-import PieChart from '../../../components/charts/PieChart';
 import { useAuth } from '../../../contexts/AuthContext';
-
 import * as teachersApi from '../../../services/api/teachers';
+import usePolling from '../../../hooks/usePolling';
 
-const days = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri'];
+const WEEKDAYS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
 
 export default function WeeklyTimetable() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
@@ -44,6 +46,8 @@ export default function WeeklyTimetable() {
   const { user } = useAuth();
 
   const [scheduleSlots, setScheduleSlots] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
   const [cls, setCls] = useState('');
   const [section, setSection] = useState('');
@@ -57,28 +61,35 @@ export default function WeeklyTimetable() {
   const { isOpen, onOpen, onClose } = useDisclosure();
   const [selected, setSelected] = useState(null);
 
-  useEffect(() => {
-    let mounted = true;
-    (async () => {
-      if (!user) return;
-      try {
-        const res = await teachersApi.listSchedules({});
-        const data = Array.isArray(res) ? res : [];
-        if (mounted) setScheduleSlots(data);
-      } catch (e) {
-        console.error('Failed to load weekly schedules', e);
-        if (mounted) setScheduleSlots([]);
-      }
-    })();
-    return () => { mounted = false; };
-  }, [user]);
+  const loadSchedule = useCallback(async () => {
+    try {
+      const response = await teachersApi.listSchedules({});
+      setScheduleSlots(Array.isArray(response) ? response : []);
+      setError('');
+    } catch (loadError) {
+      setError(loadError?.message || 'Unable to load the weekly timetable.');
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
+  usePolling(loadSchedule, 30000, user?.role === 'teacher');
+
+  const visibleSchedules = useMemo(() => scheduleSlots.filter((slot) =>
+    (!cls || String(slot.class) === String(cls)) &&
+    (!section || String(slot.section) === String(section))
+  ), [scheduleSlots, cls, section]);
+
+  const days = useMemo(() => WEEKDAYS.filter((_, index) =>
+    visibleSchedules.some((slot) => Number(slot.dayOfWeek) === index + 1)
+  ), [visibleSchedules]);
 
   const periods = useMemo(() => {
-    const set = new Set(scheduleSlots.map(s => String(s.startTime || '').slice(0,5)).filter(Boolean));
+    const set = new Set(visibleSchedules.map(s => String(s.startTime || '').slice(0,5)).filter(Boolean));
     const list = Array.from(set);
     list.sort();
-    return list.length ? list : ['08:00','09:00','10:00','11:00','12:00','14:00'];
-  }, [scheduleSlots]);
+    return list;
+  }, [visibleSchedules]);
 
   const availableClasses = useMemo(() => {
     const set = new Set(scheduleSlots.map(s => String(s.class)).filter(Boolean));
@@ -103,9 +114,7 @@ export default function WeeklyTimetable() {
     const out = {};
     days.forEach(d => { out[d] = {}; periods.forEach(p => { out[d][p] = []; }); });
 
-    scheduleSlots
-      .filter(s => (!cls || String(s.class) === String(cls)) && (!section || String(s.section) === String(section)))
-      .forEach(s => {
+    visibleSchedules.forEach(s => {
         const dayIndex = Number(s.dayOfWeek);
         const dayName = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'][dayIndex - 1];
         if (!days.includes(dayName)) return;
@@ -120,17 +129,17 @@ export default function WeeklyTimetable() {
         });
       });
     return out;
-  }, [scheduleSlots, cls, section, periods, user]);
+  }, [visibleSchedules, periods, user, days]);
 
   const kpis = useMemo(() => {
-    let total = 0; let breaks = 0; const subjects = new Set();
+    let total = 0; const subjects = new Set();
     days.forEach(d => periods.forEach(p => {
       const arr = filteredWeek[d][p] || [];
       total += arr.length;
       arr.forEach(e => subjects.add(e.subject));
     }));
-    return { total, breaks, subjects: subjects.size };
-  }, [filteredWeek, periods]);
+    return { total, subjects: subjects.size };
+  }, [filteredWeek, periods, days]);
 
   const tableRows = useMemo(() => periods.map(time => ({
     time,
@@ -162,17 +171,12 @@ export default function WeeklyTimetable() {
   };
 
   const chartData = useMemo(() => ([{ name: 'Lessons', data: days.map(d => periods.reduce((s,p)=> s + (filteredWeek[d][p]?.length || 0), 0)) }]), [filteredWeek, periods]);
-  const chartOptions = useMemo(() => ({ xaxis: { categories: days }, colors: ['#805AD5'] }), []);
-
-  const totals = useMemo(() => {
-    const lessons = days.reduce((s,d)=> s + periods.reduce((t,p)=> t + (filteredWeek[d][p]?.length || 0), 0), 0);
-    return { lessons, breaks: 0 };
-  }, [filteredWeek, periods]);
+  const chartOptions = useMemo(() => ({ xaxis: { categories: days }, colors: ['#805AD5'] }), [days]);
 
   const onCellClick = (cell) => {
     // Also set selectedDate based on weekStart + day index so the mini table reflects that day
     const start = new Date(weekStart);
-    const dayIndexMap = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4 };
+    const dayIndexMap = { Mon: 0, Tue: 1, Wed: 2, Thu: 3, Fri: 4, Sat: 5, Sun: 6 };
     const idx = dayIndexMap[cell.day] ?? 0;
     const d = new Date(start); d.setDate(start.getDate() + idx);
     setSelectedDate(toYMD(d));
@@ -185,7 +189,7 @@ export default function WeeklyTimetable() {
     return `${m} ${d.getFullYear()}`;
   }, [viewDate]);
 
-  const weekDays = ['Mon','Tue','Wed','Thu','Fri','Sat','Sun'];
+  const weekDays = WEEKDAYS;
   const calendarDays = useMemo(() => {
     const d = new Date(viewDate.getFullYear(), viewDate.getMonth(), 1);
     const startOffset = (d.getDay() + 6) % 7; // Monday-first
@@ -221,31 +225,35 @@ export default function WeeklyTimetable() {
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Weekly Timetable</Text>
       <Text fontSize='md' color={textSecondary} mb='16px'>Overview of periods across the week</Text>
 
+      {error && (
+        <Alert status='error' mb='16px'>
+          <AlertIcon />
+          <Box flex='1'>{error}</Box>
+          <Button size='sm' onClick={loadSchedule}>Retry</Button>
+        </Alert>
+      )}
+      {!loading && !error && visibleSchedules.length === 0 && (
+        <Alert status='info' mb='16px'>
+          <AlertIcon />
+          {scheduleSlots.length === 0
+            ? 'No timetable records are available for this teacher.'
+            : 'No timetable records match the selected filters.'}
+        </Alert>
+      )}
+
       <Box mb='16px'>
         <Flex gap='16px' w='100%' wrap='nowrap'>
           <MiniStatistics
             compact
             startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#B721FF 0%,#21D4FD 100%)' icon={<MdClass color='white' />} />}
             name='Total Periods'
-            value={String(kpis.total)}
-            trendData={[3,4,4,5,4,6]}
-            trendColor='#B721FF'
-          />
-          <MiniStatistics
-            compact
-            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#FFB36D 0%,#FD7853 100%)' icon={<MdAlarm color='white' />} />}
-            name='Breaks'
-            value={String(kpis.breaks)}
-            trendData={[1,1,1,2,1,2]}
-            trendColor='#FD7853'
+            value={loading || error ? '—' : String(kpis.total)}
           />
           <MiniStatistics
             compact
             startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<MdBook color='white' />} />}
             name='Unique Subjects'
-            value={String(kpis.subjects)}
-            trendData={[2,2,3,3,4,4]}
-            trendColor='#01B574'
+            value={loading || error ? '—' : String(kpis.subjects)}
           />
           <HStack>
             <Button size='sm' onClick={()=>setViewDate(new Date(viewDate.getFullYear(), viewDate.getMonth()-1, 1))}>{'<'}</Button>
@@ -272,7 +280,7 @@ export default function WeeklyTimetable() {
             </Select>
           </HStack>
           <HStack>
-            <Button size='sm' variant='outline' leftIcon={<Icon as={MdRefresh}/>} onClick={()=>{const t=new Date();setCls('');setSection('');setWeekStart(toYMD(t));setSelectedDate(toYMD(t));}}>Reset</Button>
+            <Button size='sm' variant='outline' leftIcon={<Icon as={MdRefresh}/>} onClick={()=>{const t=new Date();setCls('');setSection('');setWeekStart(toYMD(t));setSelectedDate(toYMD(t));loadSchedule();}}>Reset</Button>
             <Button size='sm' variant='outline' leftIcon={<Icon as={MdPrint}/>} onClick={()=>window.print()}>Print</Button>
             <Button size='sm' colorScheme='blue' leftIcon={<Icon as={MdFileDownload}/>} onClick={exportCSV}>Export CSV</Button>
           </HStack>
@@ -364,12 +372,6 @@ export default function WeeklyTimetable() {
           <Box>
             <Text fontWeight='700' mb='8px'>Lessons per Day</Text>
             <BarChart chartData={chartData} chartOptions={chartOptions} height={220} />
-          </Box>
-        </Card>
-        <Card p='16px'>
-          <Box>
-            <Text fontWeight='700' mb='8px'>Lessons vs Breaks (Week)</Text>
-            <PieChart height={240} chartData={[totals.lessons, totals.breaks]} chartOptions={{ labels:['Lessons','Breaks'], legend:{ position:'right' } }} />
           </Box>
         </Card>
       </SimpleGrid>

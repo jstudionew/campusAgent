@@ -94,22 +94,25 @@ export default function CampusSwitcher() {
                 _hover={{ bg: buttonHover }}
                 _active={{ bg: buttonHover }}
                 borderRadius='30px'
-                px='16px'
+                px={{ base: '10px', md: '16px' }}
                 h='40px'
-                mr='10px'
+                mr='0'
+                maxW={{ base: 'min(44vw, 190px)', md: '220px' }}
+                minW='0'
             >
-                <Flex alignItems='center'>
+                <Flex alignItems='center' minW='0'>
                     <Image 
                         src='/school.png' 
                         alt='Campus Logo' 
                         w='24px' 
                         h='24px' 
-                        mr='8px' 
+                        mr='8px'
+                        flexShrink='0'
                         borderRadius='4px'
                         objectFit='cover'
                         fallback={<Icon as={MdSchool} color='brand.500' w='18px' h='18px' />}
                     />
-                    <Text fontSize='sm' fontWeight='700' color={textColor}>
+                    <Text fontSize='sm' fontWeight='700' color={textColor} noOfLines={1} minW='0'>
                         {selectedCampus ? selectedCampus.name : 'Select Campus'}
                     </Text>
                 </Flex>

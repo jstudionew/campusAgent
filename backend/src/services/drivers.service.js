@@ -209,8 +209,8 @@ export const createDriverPayroll = async (data) => {
   const totalAmount = (Number(baseSalary) || 0) + (Number(allowances) || 0) + (Number(bonuses) || 0) - (Number(deductions) || 0);
 
   const { rows } = await query(`
-    INSERT INTO driver_payrolls (driver_id, period_month, base_salary, allowances, deductions, bonuses, total_amount, status, payment_method, bank_name, account_title, account_number, iban, cheque_number, transaction_reference, paid_on, notes, created_by)
-    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+    INSERT INTO driver_payrolls (driver_id, period_month, base_salary, allowances, deductions, bonuses, total_amount, status, payment_method, bank_name, account_title, account_number, iban, cheque_number, transaction_reference, paid_on, notes, created_by, campus_id)
+    VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,(SELECT campus_id FROM drivers WHERE id = $1))
     ON CONFLICT (driver_id, period_month) DO UPDATE SET
       base_salary = EXCLUDED.base_salary,
       allowances = EXCLUDED.allowances,
@@ -227,6 +227,7 @@ export const createDriverPayroll = async (data) => {
       transaction_reference = EXCLUDED.transaction_reference,
       paid_on = EXCLUDED.paid_on,
       notes = EXCLUDED.notes,
+      campus_id = COALESCE(driver_payrolls.campus_id, EXCLUDED.campus_id),
       updated_at = NOW()
     RETURNING id, driver_id AS "driverId", period_month AS "periodMonth",
              base_salary AS "baseSalary", allowances, deductions, bonuses,
@@ -291,78 +292,49 @@ export const countDrivers = async () => {
 
 export const getDashboardStats = async (driverId) => {
   const stats = {
-    routeName: 'No Route Assigned',
-    stops: 0,
-    progress: 0,
-    gpsStatus: 'Offline',
-    nextStop: '--',
-    eta: '--',
-    vehicleId: 'No Vehicle',
-    capacity: 'N/A',
-    shift: { start: '08:00 AM', end: '04:00 PM' }, // Placeholder
-    lastUpdate: 'Just now',
-    speed: '0 km/h',
-    speedTrend: Array.from({ length: 12 }, () => Math.floor(Math.random() * (60 - 20 + 1)) + 20)
+    routeName: null,
+    stops: null,
+    firstRouteStop: null,
+    routeStops: [],
+    vehicleId: null,
+    capacity: null,
   };
 
-  try {
-    // 1. Get Driver and Bus Info
-    const { rows: driverRows } = await query(`
-      SELECT d.name, b.number as "busNumber"
-      FROM drivers d
-      LEFT JOIN buses b ON d.bus_id = b.id
-      WHERE d.id = $1
-    `, [driverId]);
+  const { rows: driverRows } = await query(`
+    SELECT b.number AS "busNumber", b.capacity
+    FROM drivers d
+    LEFT JOIN buses b ON d.bus_id = b.id
+    WHERE d.id = $1
+  `, [driverId]);
+  if (!driverRows.length) return stats;
 
-    if (!driverRows.length) return stats;
-    const driver = driverRows[0];
+  stats.vehicleId = driverRows[0].busNumber;
+  stats.capacity = driverRows[0].capacity === null ? null : Number(driverRows[0].capacity);
 
-    if (driver.busNumber) {
-      stats.vehicleId = driver.busNumber;
-      stats.capacity = 'Standard'; // Default, schema doesn't have capacity on buses table yet
-      stats.gpsStatus = 'Connected'; // Assume connected if assigned
-    }
+  const { rows: routeRows } = await query(`
+    SELECT r.id AS "routeId", r.name
+    FROM drivers d
+    JOIN bus_assignments ba ON ba.bus_id = d.bus_id
+    JOIN routes r ON r.id = ba.route_id
+    WHERE d.id = $1
+    ORDER BY r.id
+    LIMIT 1
+  `, [driverId]);
 
-    // 2. Get Route Info via Bus Assignment
-    // drivers.bus_id -> buses.id
-    // bus_assignments: bus_id -> route_id
-    // routes: id -> name
-    const { rows: routeRows } = await query(`
-      SELECT r.name, r.id as "routeId"
-      FROM drivers d
-      JOIN bus_assignments ba ON ba.bus_id = d.bus_id
-      JOIN routes r ON r.id = ba.route_id
-      WHERE d.id = $1
-    `, [driverId]);
-
-    if (routeRows.length) {
-      const route = routeRows[0];
-      stats.routeName = route.name;
-
-      // 3. Get Stops Count
-      const { rows: stopsRows } = await query(
-        `SELECT COUNT(*)::int as count FROM route_stops WHERE route_id = $1`,
-        [route.routeId]
-      );
-      stats.stops = stopsRows[0]?.count || 0;
-
-      // Mock progress for now as we don't have real-time tracking
-      stats.progress = 0;
-      // If there are stops, set next stop as the first one
-      if (stats.stops > 0) {
-        const { rows: nextStop } = await query(
-          `SELECT name FROM route_stops WHERE route_id = $1 ORDER BY sequence ASC LIMIT 1`,
-          [route.routeId]
-        );
-        if (nextStop.length) {
-          stats.nextStop = nextStop[0].name;
-          stats.eta = 'Pending Start';
-        }
-      }
-    }
-
-  } catch (err) {
-    console.error('Error fetching driver dashboard stats:', err);
+  if (routeRows.length) {
+    const route = routeRows[0];
+    stats.routeName = route.name;
+    const { rows: stopsRows } = await query(
+      `SELECT COUNT(*)::int AS count FROM route_stops WHERE route_id = $1`,
+      [route.routeId]
+    );
+    stats.stops = Number(stopsRows[0]?.count ?? 0);
+    const { rows: routeStops } = await query(
+      `SELECT id, name, sequence FROM route_stops WHERE route_id = $1 ORDER BY sequence ASC`,
+      [route.routeId]
+    );
+    stats.routeStops = routeStops;
+    stats.firstRouteStop = routeStops[0]?.name || null;
   }
 
   return stats;

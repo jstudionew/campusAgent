@@ -4,11 +4,8 @@ import {
   StatLabel,
   StatNumber,
   useColorModeValue,
-  Text,
-  Box,
 } from "@chakra-ui/react";
 import Card from "components/card/Card.js";
-import Sparkline from "components/charts/Sparkline.tsx";
 import React from "react";
 
 export default function Default(props) {
@@ -16,11 +13,7 @@ export default function Default(props) {
     startContent,
     endContent,
     name,
-    growth,
     value,
-    trendData,
-    trendColor,
-    trendFormatter,
     compact,
   } = props;
 
@@ -30,8 +23,6 @@ export default function Default(props) {
     "0 12px 30px rgba(37, 99, 235, 0.12)",
     "0 14px 35px rgba(0, 0, 0, 0.65)"
   );
-
-  const isNegativeGrowth = typeof growth === 'string' && growth.trim().startsWith('-');
 
   return (
     <Card
@@ -80,41 +71,11 @@ export default function Default(props) {
           </Stat>
         </Flex>
 
-        {growth ? (
-          <Flex
-            align='flex-end'
-            direction='column'
-            ms='auto'
-            minW='max-content'
-          >
-            <Text
-              color={isNegativeGrowth ? 'red.500' : 'green.500'}
-              fontSize='sm'
-              fontWeight='700'
-            >
-              {growth}
-            </Text>
-            <Text color={textColorSecondary} fontSize='xs' fontWeight='500' display={{ base: 'none', md: 'block' }}>
-              since last month
-            </Text>
-          </Flex>
-        ) : (
+        {endContent && (
           <Flex ms='auto' display={{ base: 'none', md: 'flex' }}>{endContent}</Flex>
         )}
       </Flex>
 
-      {trendData && trendData.length > 0 && (
-        <Box w='100%' h={compact ? '36px' : '48px'} mt={compact ? 3 : 4}>
-          <Sparkline
-            ariaLabel={`${name || 'Metric'} trend`}
-            data={trendData}
-            color={trendColor || "#2563EB"}
-            height={compact ? 36 : 48}
-            type="line"
-            valueFormatter={trendFormatter}
-          />
-        </Box>
-      )}
     </Card>
   );
 }

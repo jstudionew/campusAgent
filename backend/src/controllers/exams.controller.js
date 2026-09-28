@@ -1,9 +1,16 @@
 import * as service from '../services/exams.service.js';
+import * as studentsService from '../services/students.service.js';
 import { assertResourceCampusAccess } from '../middleware/auth.js';
 
 export const list = async (req, res, next) => {
   try {
-    const { q, className, section, fromDate, toDate, page, pageSize } = req.query;
+    let { q, className, section, fromDate, toDate, page, pageSize } = req.query;
+    if (req.user?.role === 'student') {
+      const student = await studentsService.getByUserId(req.user.id);
+      if (!student?.class) return res.json({ items: [] });
+      className = student.class;
+      section = student.section || undefined;
+    }
     const items = await service.listExams({
       q, className, section, fromDate, toDate, page, pageSize,
       campusId: req.user?.campusId

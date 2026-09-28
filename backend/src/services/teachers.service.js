@@ -778,8 +778,8 @@ export const createPayroll = async (payload = {}) => {
   ];
 
   const { rows } = await query(
-    `INSERT INTO teacher_payrolls (teacher_id, period_month, base_salary, allowances, deductions, bonuses, total_amount, status, payment_method, bank_name, account_title, account_number, iban, cheque_number, transaction_reference, paid_on, notes, created_by)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+    `INSERT INTO teacher_payrolls (teacher_id, period_month, base_salary, allowances, deductions, bonuses, total_amount, status, payment_method, bank_name, account_title, account_number, iban, cheque_number, transaction_reference, paid_on, notes, created_by, campus_id)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,(SELECT campus_id FROM teachers WHERE id = $1))
      ON CONFLICT ON CONSTRAINT teacher_payrolls_teacher_id_period_month_key
      DO UPDATE SET
        base_salary = EXCLUDED.base_salary,
@@ -798,6 +798,7 @@ export const createPayroll = async (payload = {}) => {
        paid_on = EXCLUDED.paid_on,
        notes = EXCLUDED.notes,
        created_by = COALESCE(teacher_payrolls.created_by, EXCLUDED.created_by),
+       campus_id = COALESCE(teacher_payrolls.campus_id, EXCLUDED.campus_id),
        updated_at = NOW()
      RETURNING id`,
     values
@@ -1356,8 +1357,8 @@ export const getDashboardStats = async (teacherId) => {
     alerts: 0,
     upcomingClass: null,
     attendanceTrend: {
-      categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      series: [{ name: 'Attendance %', data: [0, 0, 0, 0, 0, 0, 0] }]
+      categories: [],
+      series: [{ name: 'Attendance %', data: [] }]
     },
     homeworkStats: {
       categories: [],
@@ -1413,13 +1414,14 @@ export const getDashboardStats = async (teacherId) => {
       let pendingCount = 0;
       for (const cls of classesRows) {
         const { rows: attRows } = await query(
-          `SELECT 1 FROM attendance_records ar
-           JOIN students s ON s.id = ar.student_id
-           WHERE s.class = $1 AND s.section = $2 AND ar.date = $3
-           LIMIT 1`,
+          `SELECT COUNT(DISTINCT s.id)::int AS total,
+                  COUNT(DISTINCT ar.student_id)::int AS marked
+           FROM students s
+           LEFT JOIN attendance_records ar ON ar.student_id = s.id AND ar.date = $3
+           WHERE s.status = 'active' AND s.class = $1 AND s.section IS NOT DISTINCT FROM $2`,
           [cls.class, cls.section, todayDate]
         );
-        if (attRows.length === 0) pendingCount++;
+        if (Number(attRows[0]?.marked || 0) < Number(attRows[0]?.total || 0)) pendingCount++;
       }
       stats.attendancePending = pendingCount;
     }
@@ -1464,7 +1466,7 @@ export const getDashboardStats = async (teacherId) => {
     }
 
     // 5. Attendance Trend (Last 7 days)
-    if (studentIds.length > 0) {
+    {
       const trendData = [];
       const trendDays = [];
       for (let i = 6; i >= 0; i--) {
@@ -1473,19 +1475,21 @@ export const getDashboardStats = async (teacherId) => {
         const dateStr = d.toISOString().slice(0, 10);
         const dayName = d.toLocaleDateString('en-US', { weekday: 'short' });
         trendDays.push(dayName);
-
-        const { rows: attStats } = await query(
+        let present = 0;
+        let total = 0;
+        if (studentIds.length > 0) {
+          const { rows: attStats } = await query(
           `SELECT
              COUNT(*) FILTER (WHERE status = 'present') AS present,
              COUNT(*) AS total
            FROM attendance_records
            WHERE student_id = ANY($1) AND date = $2`,
-          [studentIds, dateStr]
-        );
-
-        const present = Number(attStats[0].present);
-        const total = Number(attStats[0].total);
-        const percent = total > 0 ? Math.round((present / total) * 100) : 0;
+            [studentIds, dateStr]
+          );
+          present = Number(attStats[0].present);
+          total = Number(attStats[0].total);
+        }
+        const percent = total > 0 ? Math.round((present / total) * 100) : null;
         trendData.push(percent);
       }
       stats.attendanceTrend.categories = trendDays;
@@ -1494,6 +1498,7 @@ export const getDashboardStats = async (teacherId) => {
 
   } catch (err) {
     console.error('Error fetching dashboard stats:', err);
+    throw err;
   }
 
   return stats;

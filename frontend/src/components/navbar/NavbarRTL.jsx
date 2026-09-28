@@ -122,6 +122,7 @@ export default function AdminNavbar(props) {
             secondary={props.secondary}
             fixed={props.fixed}
             scrolled={scrolled}
+            routes={props.routes}
           />
         </Box>
       </Flex>

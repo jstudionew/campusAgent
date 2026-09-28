@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Flex,
@@ -23,10 +23,10 @@ import {
   MdNotificationsActive,
   MdQrCodeScanner,
 } from 'react-icons/md';
-import BarChart from '../../components/charts/BarChart';
 import LineAreaChart from '../../components/charts/LineAreaChart';
 import { useAuth } from '../../contexts/AuthContext';
 import * as studentsApi from '../../services/api/students';
+import usePolling from '../../hooks/usePolling';
 
 export default function StudentDashboard() {
   const textSecondary = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
@@ -34,47 +34,38 @@ export default function StudentDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [stats, setStats] = useState({
-    todaysClasses: 4,
-    attendance: 94,
-    pendingAssignments: 2,
-    upcomingExams: 1,
-    notifications: 3,
-  });
+  const [stats, setStats] = useState(null);
   const [schedules, setSchedules] = useState([]);
-  const [attendanceTrend, setAttendanceTrend] = useState([88, 90, 92, 91, 94]);
+  const [attendanceTrend, setAttendanceTrend] = useState([]);
 
-  useEffect(() => {
-    const fetchStatsAndSchedule = async () => {
-      try {
-        if (user?.role === 'student') {
-          const { rows } = await studentsApi.list({});
-          if (rows && rows.length > 0) {
-            const me = rows[0];
-
-            const data = await studentsApi.getDashboardStats(me.id);
-            if (data) setStats(data);
-
-            const trend = await studentsApi.getAttendanceTrend(me.id);
-            if (trend && trend.length) setAttendanceTrend(trend);
-
-            const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
-            const schedData = await studentsApi.listSchedules({
-              className: me.class,
-              section: me.section,
-              day: today,
-            });
-            if (schedData) setSchedules(schedData);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch student dashboard data', err);
+  usePolling(async () => {
+    try {
+      const { rows } = await studentsApi.list({ page: 1, pageSize: 1 });
+      const student = rows?.[0];
+      if (!student) {
+        setStats(null);
+        setSchedules([]);
+        setAttendanceTrend([]);
+        return;
       }
-    };
-    if (user?.role === 'student') {
-      fetchStatsAndSchedule();
+
+      const today = new Date().toLocaleDateString('en-US', { weekday: 'long' });
+      const [nextStats, trend, nextSchedules] = await Promise.all([
+        studentsApi.getDashboardStats(student.id),
+        studentsApi.getAttendanceTrend(student.id),
+        studentsApi.listSchedules({
+          className: student.class,
+          section: student.section,
+          day: today,
+        }),
+      ]);
+      setStats(nextStats);
+      setAttendanceTrend(Array.isArray(trend) ? trend : []);
+      setSchedules(Array.isArray(nextSchedules) ? nextSchedules : []);
+    } catch (err) {
+      console.error('Failed to refresh student dashboard data', err);
     }
-  }, [user]);
+  }, 30000, user?.role === 'student');
 
   return (
     <Box pt={{ base: '20px', md: '10px' }} pb='40px'>
@@ -112,8 +103,7 @@ export default function StudentDashboard() {
             />
           }
           name="Today's Classes"
-          value={String(stats.todaysClasses)}
-          trendData={[2, 3, 4, 4, 4]}
+          value={stats ? String(stats.todaysClasses) : '—'}
           trendColor='#2563EB'
         />
         <MiniStatistics
@@ -127,7 +117,7 @@ export default function StudentDashboard() {
             />
           }
           name='Attendance %'
-          value={`${stats.attendance}%`}
+          value={stats?.attendance == null ? '—' : `${stats.attendance}%`}
           trendData={attendanceTrend}
           trendColor='#10B981'
           trendFormatter={(v) => `${v}%`}
@@ -143,8 +133,7 @@ export default function StudentDashboard() {
             />
           }
           name='Pending Work'
-          value={String(stats.pendingAssignments)}
-          trendData={[1, 2, 2, 2, 2]}
+          value={stats ? String(stats.pendingAssignments) : '—'}
           trendColor='#F59E0B'
         />
         <MiniStatistics
@@ -158,8 +147,7 @@ export default function StudentDashboard() {
             />
           }
           name='Upcoming Exams'
-          value={String(stats.upcomingExams)}
-          trendData={[0, 1, 1, 1, 1]}
+          value={stats ? String(stats.upcomingExams) : '—'}
           trendColor='#0D9488'
         />
         <MiniStatistics
@@ -173,8 +161,7 @@ export default function StudentDashboard() {
             />
           }
           name='Announcements'
-          value={String(stats.notifications)}
-          trendData={[1, 2, 2, 3, 3]}
+          value={stats ? String(stats.notifications) : '—'}
           trendColor='#3B82F6'
         />
       </SimpleGrid>
@@ -214,7 +201,7 @@ export default function StudentDashboard() {
             ) : (
               <Box py={6} textAlign='center'>
                 <Text color={textSecondary} fontSize='sm'>
-                  No pending lectures scheduled for today.
+                  No classes are scheduled for today.
                 </Text>
               </Box>
             )}
@@ -297,52 +284,40 @@ export default function StudentDashboard() {
       </SimpleGrid>
 
       {/* Analytics Charts */}
-      <SimpleGrid columns={{ base: 1, lg: 2 }} spacing='20px'>
+      <SimpleGrid columns={{ base: 1 }} spacing='20px'>
         <Card p='20px'>
           <Text fontSize='lg' fontWeight='800' color={textColor} mb='12px'>
             Attendance Trend
           </Text>
-          <LineAreaChart
-            chartData={[{ name: 'Attendance %', data: attendanceTrend }]}
-            chartOptions={{
-              chart: { toolbar: { show: false } },
-              stroke: { curve: 'smooth', width: 3 },
-              fill: {
-                type: 'gradient',
-                gradient: {
-                  shadeIntensity: 0.2,
-                  opacityFrom: 0.5,
-                  opacityTo: 0.05,
-                  stops: [0, 90, 100],
+          {attendanceTrend.some((value) => Number.isFinite(value)) ? (
+            <LineAreaChart
+              chartData={[{ name: 'Attendance %', data: attendanceTrend }]}
+              chartOptions={{
+                chart: { toolbar: { show: false } },
+                stroke: { curve: 'smooth', width: 3 },
+                fill: {
+                  type: 'gradient',
+                  gradient: {
+                    shadeIntensity: 0.2,
+                    opacityFrom: 0.5,
+                    opacityTo: 0.05,
+                    stops: [0, 90, 100],
+                  },
                 },
-              },
-              xaxis: { categories: ['W1', 'W2', 'W3', 'W4', 'W5'] },
-              colors: ['#10B981'],
-              dataLabels: { enabled: false },
-              grid: { padding: { left: 12, right: 12 } },
-              tooltip: { enabled: true, shared: true, intersect: false, y: { formatter: (v) => `${v}%` } },
-            }}
-          />
+                xaxis: { categories: ['W1', 'W2', 'W3', 'W4', 'W5'] },
+                colors: ['#10B981'],
+                dataLabels: { enabled: false },
+                grid: { padding: { left: 12, right: 12 } },
+                tooltip: { enabled: true, shared: true, intersect: false, y: { formatter: (v) => `${v}%` } },
+              }}
+            />
+          ) : (
+            <Text color={textSecondary} fontSize='sm' textAlign='center' py='12'>
+              No attendance records are available for this period.
+            </Text>
+          )}
         </Card>
 
-        <Card p='20px'>
-          <Text fontSize='lg' fontWeight='800' color={textColor} mb='12px'>
-            Academic Progress
-          </Text>
-          <BarChart
-            chartData={[
-              { name: 'Completed Assignments', data: [3, 4, 5, 6, 7] },
-              { name: 'Exams Passed', data: [1, 1, 2, 2, 3] },
-            ]}
-            chartOptions={{
-              xaxis: { categories: ['Jan', 'Feb', 'Mar', 'Apr', 'May'] },
-              colors: ['#2563EB', '#F59E0B'],
-              dataLabels: { enabled: false },
-              legend: { position: 'top' },
-            }}
-            height={220}
-          />
-        </Card>
       </SimpleGrid>
     </Box>
   );

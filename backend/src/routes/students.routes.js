@@ -236,7 +236,7 @@ router.put(
 router.post(
   '/:id/fees/payments',
   authenticate,
-  authorize('admin', 'owner', 'student'),
+  authorize('admin', 'owner'),
   [
     param('id').isInt(),
     body('invoiceId').isInt(),
@@ -277,6 +277,7 @@ router.put(
   [
     body('name').optional({ checkFalsy: true }).isString().trim(),
     body('email').optional({ checkFalsy: true }).isEmail().normalizeEmail(),
+    body('phone').optional({ checkFalsy: true }).isString().trim().isLength({ max: 32 }),
     body('parentName').optional({ checkFalsy: true }).isString().trim(),
     body('parentPhone')
       .optional({ checkFalsy: true })
@@ -284,6 +285,7 @@ router.put(
       .trim()
       .matches(phone11DigitsPattern)
       .withMessage('parentPhone must be exactly 11 digits'),
+    body('personal').optional().isObject(),
   ],
   validate,
   studentController.updateSelfProfile
@@ -295,7 +297,7 @@ router.post(
   authorize('student'),
   [
     body('currentPassword').isString().notEmpty(),
-    body('newPassword').isString().isLength({ min: 6 }),
+    body('newPassword').isString().isLength({ min: 8, max: 128 }),
   ],
   validate,
   studentController.changeMyPassword

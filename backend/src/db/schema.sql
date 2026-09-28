@@ -27,6 +27,8 @@ ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (
 -- Job title and department for users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS job_title TEXT;
 ALTER TABLE users ADD COLUMN IF NOT EXISTS department TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS phone TEXT;
+ALTER TABLE users ADD COLUMN IF NOT EXISTS avatar TEXT;
 
 -- Username-based login support and nullable email for non-email users
 ALTER TABLE users ADD COLUMN IF NOT EXISTS username TEXT;
@@ -452,6 +454,7 @@ CREATE INDEX IF NOT EXISTS idx_teacher_attendance_teacher ON teacher_attendance 
 CREATE TABLE IF NOT EXISTS teacher_payrolls (
   id SERIAL PRIMARY KEY,
   teacher_id INTEGER NOT NULL REFERENCES teachers(id) ON DELETE CASCADE,
+  campus_id INTEGER REFERENCES campuses(id) ON DELETE SET NULL,
   period_month DATE NOT NULL,
   base_salary NUMERIC(12,2) NOT NULL DEFAULT 0,
   allowances NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -953,6 +956,7 @@ CREATE INDEX IF NOT EXISTS idx_drivers_bus ON drivers(bus_id);
 CREATE TABLE IF NOT EXISTS driver_payrolls (
   id SERIAL PRIMARY KEY,
   driver_id INTEGER NOT NULL REFERENCES drivers(id) ON DELETE CASCADE,
+  campus_id INTEGER REFERENCES campuses(id) ON DELETE SET NULL,
   period_month DATE NOT NULL,
   base_salary NUMERIC(12,2) NOT NULL DEFAULT 0,
   allowances NUMERIC(12,2) NOT NULL DEFAULT 0,
@@ -1010,6 +1014,7 @@ CREATE INDEX IF NOT EXISTS idx_finance_invoices_due ON finance_invoices(due_date
 CREATE TABLE IF NOT EXISTS finance_payments (
   id SERIAL PRIMARY KEY,
   invoice_id INTEGER NOT NULL REFERENCES finance_invoices(id) ON DELETE CASCADE,
+  campus_id INTEGER REFERENCES campuses(id) ON DELETE SET NULL,
   user_type TEXT NOT NULL CHECK (user_type IN ('student','teacher','driver')),
   user_id INTEGER NOT NULL,
   amount NUMERIC(12,2) NOT NULL,
@@ -1134,4 +1139,3 @@ CREATE TABLE IF NOT EXISTS expenses (
 CREATE INDEX IF NOT EXISTS idx_expenses_date ON expenses(date);
 CREATE INDEX IF NOT EXISTS idx_expenses_category ON expenses(category);
 CREATE INDEX IF NOT EXISTS idx_expenses_status ON expenses(status);
-

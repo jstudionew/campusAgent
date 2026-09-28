@@ -6,9 +6,11 @@ import Navbar from 'components/navbar/NavbarRTL';
 import Sidebar from 'components/sidebar/Sidebar';
 import { RtlProvider } from 'components/rtlProvider/RtlProvider';
 import { SidebarContext } from 'contexts/SidebarContext';
-import React, { useState } from 'react';
+import React, { useMemo, useState } from 'react';
 import { Navigate, Route, Routes } from 'react-router-dom';
 import routes from 'routes.js';
+import { useAuth } from 'contexts/AuthContext';
+import { filterRoutesByAccess } from '../../utils/filterRoutesByAccess';
 
 // Custom Chakra theme
 export default function Dashboard(props) {
@@ -17,6 +19,11 @@ export default function Dashboard(props) {
   const [fixed] = useState(false);
   const [toggleSidebar, setToggleSidebar] = useState(false);
   const sidebarWidth = toggleSidebar ? 80 : 260;
+  const { user, moduleAccess } = useAuth();
+  const effectiveRoutes = useMemo(
+    () => filterRoutesByAccess(routes, { layout: '/admin', moduleAccess, role: user?.role }),
+    [moduleAccess, user?.role]
+  );
   // functions for changing the states from components
   const getRoute = () => {
     return window.location.pathname !== '/rtl/full-screen-maps';
@@ -114,7 +121,7 @@ export default function Dashboard(props) {
           setToggleSidebar,
         }}
       >
-        <Sidebar routes={routes} sidebarWidth={sidebarWidth} display="none" {...rest} />
+        <Sidebar routes={effectiveRoutes} sidebarWidth={sidebarWidth} display="none" {...rest} />
         <Box
           float="left"
           minHeight="100vh"
@@ -136,9 +143,10 @@ export default function Dashboard(props) {
               <Navbar
                 onOpen={onOpen}
                 logoText={'CampusAgent'}
-                brandText={getActiveRoute(routes)}
-                secondary={getActiveNavbar(routes)}
-                message={getActiveNavbarText(routes)}
+                brandText={getActiveRoute(effectiveRoutes)}
+                secondary={getActiveNavbar(effectiveRoutes)}
+                message={getActiveNavbarText(effectiveRoutes)}
+                routes={effectiveRoutes}
                 fixed={fixed}
                 {...rest}
               />

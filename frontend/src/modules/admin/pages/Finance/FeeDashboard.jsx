@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Flex, Heading, Text, SimpleGrid, Badge, Button, ButtonGroup, useBreakpointValue, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Spinner, useToast } from '@chakra-ui/react';
+import { Alert, AlertIcon, Box, Flex, Heading, Text, SimpleGrid, Badge, Button, ButtonGroup, useBreakpointValue, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Spinner, useToast } from '@chakra-ui/react';
 import { MdAttachMoney, MdTrendingUp, MdWarning, MdFileDownload, MdPictureAsPdf, MdCalendarMonth } from 'react-icons/md';
 import { FaUserGraduate, FaChalkboardTeacher, FaTruck } from 'react-icons/fa';
 import Card from '../../../../components/card/Card';
@@ -17,11 +17,19 @@ export default function FeeDashboard() {
   const chartHeight = useBreakpointValue({ base: 220, sm: 240, md: 280, lg: 300, xl: 320 });
   const legendPosition = useBreakpointValue({ base: 'bottom', xl: 'right' });
   const isMobile = useBreakpointValue({ base: true, md: false });
+  const invoiceHeadingBorder = useColorModeValue('gray.200', 'gray.700');
+  const invoiceTableHeaderBg = useColorModeValue('gray.50', 'gray.800');
+  const invoiceRowHoverBg = useColorModeValue('gray.50', 'gray.700');
   const primaryBlue = '#60a5fa';
 
   // Hooks
   const { loading: usersLoading, counts } = useFinanceUsers();
-  const { loading: statsLoading, stats, updateParams: updateStatsParams } = useDashboardStats({});
+  const {
+    loading: statsLoading,
+    error: statsError,
+    stats,
+    refresh: refreshStats,
+  } = useDashboardStats({});
   const { loading: analyticsLoading, analytics, updateParams: updateAnalyticsParams } = useDashboardAnalytics({ days: 14 });
   const { loading: invoicesLoading, invoices, updateParams: updateInvoiceParams } = useUnifiedInvoices({ pageSize: 5 });
 
@@ -163,6 +171,24 @@ export default function FeeDashboard() {
       <Box pt={{ base: '130px', md: '80px', xl: '80px' }} textAlign="center">
         <Spinner size="xl" />
         <Text mt={3}>Loading dashboard...</Text>
+      </Box>
+    );
+  }
+
+  if (statsError) {
+    return (
+      <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
+        <Heading as="h3" size="lg" mb={4}>Fee Dashboard</Heading>
+        <Alert status="error" borderRadius="md">
+          <AlertIcon />
+          <Box flex="1">
+            <Text fontWeight="600">Financial statistics are unavailable.</Text>
+            <Text fontSize="sm">{statsError}</Text>
+          </Box>
+          <Button size="sm" ml={4} onClick={refreshStats} isLoading={statsLoading}>
+            Retry
+          </Button>
+        </Alert>
       </Box>
     );
   }
@@ -379,12 +405,12 @@ export default function FeeDashboard() {
       {/* Recent Invoices */}
       <Card>
         <Box overflow='hidden'>
-          <Heading size='md' p={4} borderBottomWidth={1} borderColor={useColorModeValue('gray.200', 'gray.700')}>
+          <Heading size='md' p={4} borderBottomWidth={1} borderColor={invoiceHeadingBorder}>
             Recent Invoices
           </Heading>
           <Box maxH='360px' overflowY='auto'>
             <Table variant='simple' size='sm'>
-              <Thead position='sticky' top={0} zIndex={1} bg={useColorModeValue('gray.50', 'gray.800')}>
+              <Thead position='sticky' top={0} zIndex={1} bg={invoiceTableHeaderBg}>
                 <Tr>
                   <Th>Invoice</Th>
                   <Th>Type</Th>
@@ -400,7 +426,7 @@ export default function FeeDashboard() {
                 ) : (!invoices || invoices.length === 0) ? (
                   <Tr><Td colSpan={6} textAlign="center" color="gray.500">No invoices found</Td></Tr>
                 ) : invoices.map((i) => (
-                  <Tr key={i.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={i.id} _hover={{ bg: invoiceRowHoverBg }}>
                     <Td><Text fontWeight='600'>{i.invoiceNumber}</Text></Td>
                     <Td>
                       <Badge colorScheme={i.userType === 'student' ? 'blue' : i.userType === 'teacher' ? 'green' : 'orange'}>

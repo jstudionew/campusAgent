@@ -1,213 +1,212 @@
-import React, { useMemo, useState } from 'react';
+import React, { useCallback, useMemo, useState } from 'react';
 import {
+  Alert,
+  AlertIcon,
   Box,
-  Text,
-  SimpleGrid,
-  Table,
-  Thead,
-  Tbody,
-  Tr,
-  Th,
-  Td,
-  Badge,
-  useColorModeValue,
-  VStack,
+  Button,
+  Center,
   HStack,
   Select,
-  Button,
-  Icon,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  useDisclosure,
-  Flex,
+  Spinner,
+  Table,
+  Tbody,
+  Td,
+  Text,
+  Th,
+  Thead,
+  Tr,
+  useColorModeValue,
 } from '@chakra-ui/react';
-import { MdRefresh, MdFileDownload, MdAccessTime, MdDateRange, MdClass } from 'react-icons/md';
+import { MdFileDownload } from 'react-icons/md';
 import Card from '../../../components/card/Card';
-import BarChart from '../../../components/charts/BarChart';
-import { mockTodayClasses } from '../../../utils/mockData';
-import MiniStatistics from '../../../components/card/MiniStatistics';
-import IconBox from '../../../components/icons/IconBox';
+import { useAuth } from '../../../contexts/AuthContext';
+import usePolling from '../../../hooks/usePolling';
+import * as studentsApi from '../../../services/api/students';
 
-const days = ['Mon','Tue','Wed','Thu','Fri'];
-const periods = ['08:00','09:00','10:00','11:00','12:00','02:00'];
+const formatTime = (value) => String(value || '').slice(0, 5) || '—';
+const csvCell = (value) => `"${String(value ?? '').replace(/"/g, '""')}"`;
 
 export default function WeeklyTimetable() {
-  const textSecondary = useColorModeValue('gray.600', 'gray.400');
-  const { isOpen, onOpen, onClose } = useDisclosure();
-  const [selectedDetail, setSelectedDetail] = useState(null);
+  const { user } = useAuth();
+  const secondaryText = useColorModeValue('gray.600', 'gray.400');
+  const headerBg = useColorModeValue('gray.50', 'gray.800');
+  const [student, setStudent] = useState(null);
+  const [schedules, setSchedules] = useState([]);
+  const [selectedDay, setSelectedDay] = useState('');
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState('');
 
-  // Derive student's primary class from mockTodayClasses
-  const myClass = useMemo(() => {
-    const counts = {};
-    (mockTodayClasses||[]).forEach(c=>{ counts[c.className] = (counts[c.className]||0)+1; });
-    const entry = Object.entries(counts).sort((a,b)=>b[1]-a[1])[0];
-    return entry ? entry[0] : '10A';
-  }, []);
-
-  const [selectedDay, setSelectedDay] = useState(days[0]);
-
-  // Build a simple weekly grid by rotating today's classes across the week/time slots
-  const weekGrid = useMemo(() => {
-    const byTime = periods.map((p, i) => ({ time: p, item: mockTodayClasses[i % mockTodayClasses.length] }));
-    const grid = {};
-    days.forEach((d, di) => {
-      grid[d] = {};
-      periods.forEach((p, pi) => {
-        const src = byTime[(pi + di) % byTime.length].item;
-        grid[d][p] = { subject: src.subject, room: src.room.replace('Room ','').replace('ROOM ',''), className: src.className, teacher: '—' };
+  const loadSchedule = useCallback(async () => {
+    try {
+      if (user?.role !== 'student') {
+        throw new Error('The timetable is only available to the signed-in student.');
+      }
+      const studentResponse = await studentsApi.list({ pageSize: 1 });
+      const currentStudent = studentResponse?.rows?.[0];
+      if (!currentStudent?.id) {
+        throw new Error('No student profile is linked to this account.');
+      }
+      if (!currentStudent.class) {
+        setStudent(currentStudent);
+        setSchedules([]);
+        setError('');
+        return;
+      }
+      const scheduleRows = await studentsApi.listSchedules({
+        className: currentStudent.class,
+        section: currentStudent.section || undefined,
       });
+      setStudent(currentStudent);
+      setSchedules(Array.isArray(scheduleRows) ? scheduleRows : []);
+      setError('');
+    } catch (loadError) {
+      setError(loadError?.message || 'Unable to load the timetable.');
+    } finally {
+      setLoading(false);
+    }
+  }, [user?.role]);
+
+  usePolling(loadSchedule, 30000, user?.role === 'student');
+
+  const days = useMemo(() => {
+    const byDay = new Map();
+    schedules.forEach((schedule) => {
+      if (schedule.dayName) byDay.set(schedule.dayName, Number(schedule.dayOfWeek));
     });
-    return grid;
-  }, []);
+    return [...byDay.entries()]
+      .sort((first, second) => first[1] - second[1])
+      .map(([name]) => name);
+  }, [schedules]);
 
-  const tableRows = useMemo(() => periods.map(p => ({
-    time: p,
-    cells: days.map(d => ({ day: d, time: p, ...(weekGrid[d]?.[p]||{ subject:'-', room:'-', className: myClass, teacher:'-' }) }))
-  })), [weekGrid, myClass]);
+  const selectedDayName = days.includes(selectedDay) ? selectedDay : days[0] || '';
+  const timeSlots = useMemo(() => {
+    const values = new Map();
+    schedules.forEach((schedule) => {
+      const key = `${schedule.startTime || ''}|${schedule.endTime || ''}`;
+      values.set(key, { key, startTime: schedule.startTime, endTime: schedule.endTime });
+    });
+    return [...values.values()].sort((first, second) =>
+      String(first.startTime || '').localeCompare(String(second.startTime || ''))
+    );
+  }, [schedules]);
 
-  const selectedRows = useMemo(() => periods.map(p => ({ time: p, ...(weekGrid[selectedDay]?.[p]||{ subject:'-', room:'-', className: myClass, teacher:'-' }) })), [weekGrid, selectedDay, myClass]);
-
-  const chartData = useMemo(() => ([{ name: 'Lessons', data: days.map(d => periods.length) }]), []);
-
+  const scheduledDays = days.length;
   const exportCSV = () => {
-    const header = ['Class','Time',...days];
-    const data = tableRows.map(r => [myClass, r.time, ...r.cells.map(c => `${c.subject}${c.room && c.room!=='-'?` (Rm ${c.room})`:''}`)]);
-    const csv = [header, ...data].map(r => r.map(v => `"${String(v).replace(/"/g,'""')}"`).join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'student_weekly_timetable.csv'; a.click(); URL.revokeObjectURL(url);
+    const rows = [
+      ['Day', 'Start', 'End', 'Class', 'Section', 'Subject', 'Teacher', 'Room'].map(csvCell).join(','),
+      ...schedules.map((schedule) => [
+        schedule.dayName,
+        formatTime(schedule.startTime),
+        formatTime(schedule.endTime),
+        schedule.class,
+        schedule.section,
+        schedule.subject,
+        schedule.teacherName,
+        schedule.room,
+      ].map(csvCell).join(',')),
+    ];
+    const blob = new Blob([rows.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const anchor = document.createElement('a');
+    anchor.href = url;
+    anchor.download = 'student-weekly-timetable.csv';
+    anchor.click();
+    URL.revokeObjectURL(url);
   };
+
+  const classLabel = student
+    ? [student.class, student.section].filter(Boolean).join('-') || '—'
+    : '—';
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
-      <Text fontSize='2xl' fontWeight='bold' mb='6px'>Weekly Timetable</Text>
-      <Text fontSize='md' color={textSecondary} mb='16px'>Your schedule for class {myClass}</Text>
+      <Text fontSize="2xl" fontWeight="bold" mb="6px">Weekly Timetable</Text>
+      <Text fontSize="md" color={secondaryText} mb="16px">Schedule for class {classLabel}</Text>
 
-      <Box mb='16px'>
-        <Flex gap='16px' w='100%' wrap='nowrap'>
-          <MiniStatistics
-            compact
-            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#805AD5 0%,#D53F8C 100%)' icon={<Icon as={MdAccessTime} w='22px' h='22px' color='white' />} />}
-            name='Total Periods/Day'
-            value={String(periods.length)}
-            trendData={[4,5,5,6,periods.length]}
-            trendColor='#805AD5'
-          />
-          <MiniStatistics
-            compact
-            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#01B574 0%,#51CB97 100%)' icon={<Icon as={MdDateRange} w='22px' h='22px' color='white' />} />}
-            name='Days/Week'
-            value={String(days.length)}
-            trendData={[5,5,5,5,days.length]}
-            trendColor='#01B574'
-          />
-          <MiniStatistics
-            compact
-            startContent={<IconBox w='44px' h='44px' bg='linear-gradient(90deg,#4481EB 0%,#04BEFE 100%)' icon={<Icon as={MdClass} w='22px' h='22px' color='white' />} />}
-            name='Class'
-            value={myClass}
-            trendData={[1,1,1,1,1]}
-            trendColor='#4481EB'
-          />
-        </Flex>
-      </Box>
+      {error && (
+        <Alert status="error" mb="16px">
+          <AlertIcon />
+          <Box flex="1">{error}</Box>
+          <Button size="sm" onClick={loadSchedule}>Retry</Button>
+        </Alert>
+      )}
 
-      <Card p='16px' mb='16px'>
-        <HStack justify='space-between' flexWrap='wrap' rowGap={3}>
-          <HStack>
-            <Text fontWeight='600'>Selected day:</Text>
-            <Select size='sm' value={selectedDay} onChange={e=>setSelectedDay(e.target.value)} maxW='140px'>
-              {days.map(d => <option key={d}>{d}</option>)}
+      <HStack mb="16px" justify="space-between" flexWrap="wrap">
+        <Text><strong>Scheduled days:</strong> {loading || error ? '—' : scheduledDays}</Text>
+        <HStack>
+          {days.length > 0 && (
+            <Select size="sm" value={selectedDayName} onChange={(event) => setSelectedDay(event.target.value)} maxW="180px">
+              {days.map((day) => <option key={day} value={day}>{day}</option>)}
             </Select>
-          </HStack>
-          <HStack>
-            <Button size='sm' variant='outline' leftIcon={<Icon as={MdRefresh} />} onClick={()=>setSelectedDay(days[0])}>Reset</Button>
-            <Button size='sm' colorScheme='purple' leftIcon={<Icon as={MdFileDownload} />} onClick={exportCSV}>Export CSV</Button>
-          </HStack>
+          )}
+          <Button size="sm" leftIcon={<MdFileDownload />} onClick={exportCSV} isDisabled={!schedules.length}>
+            Export CSV
+          </Button>
         </HStack>
-      </Card>
+      </HStack>
 
-      <Card p='16px' mb='16px'>
-        <Text fontSize='md' fontWeight='bold' mb='10px'>Selected Day: {selectedDay}</Text>
-        <Table size='sm' variant='simple'>
-          <Thead>
-            <Tr>
-              <Th>Time</Th>
-              <Th>Subject</Th>
-              <Th>Room</Th>
-              <Th>Actions</Th>
-            </Tr>
-          </Thead>
-          <Tbody>
-            {selectedRows.map(r => (
-              <Tr key={r.time}>
-                <Td>{r.time}</Td>
-                <Td>{r.subject}</Td>
-                <Td>{r.room}</Td>
-                <Td>
-                  <Button size='xs' colorScheme='purple' onClick={() => { setSelectedDetail({ day: selectedDay, time: r.time, subject: r.subject, room: r.room, className: myClass }); onOpen(); }}>View</Button>
-                </Td>
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
-      </Card>
-
-      <Card p='0' mb='16px'>
-        <Table size='sm' variant='striped' colorScheme='gray'>
-          <Thead position='sticky' top={0} bg={useColorModeValue('white','gray.800')} zIndex={1} boxShadow='sm'>
-            <Tr>
-              <Th>Time</Th>
-              {days.map(d => (<Th key={d}>{d}</Th>))}
-            </Tr>
-          </Thead>
-          <Tbody>
-            {tableRows.map(r => (
-              <Tr key={r.time}>
-                <Td fontWeight='600'>{r.time}</Td>
-                {r.cells.map(c => (
-                  <Td key={c.day}>
-                    {c.subject} {c.room && c.room!=='-' ? <Badge ml={2}>Rm {c.room}</Badge> : null}
-                    <Button ml={2} size='xs' variant='ghost' colorScheme='purple' onClick={() => { setSelectedDetail({ day: c.day, time: c.time, subject: c.subject, room: c.room, className: myClass }); onOpen(); }}>View</Button>
-                  </Td>
+      <Card p="0">
+        {loading ? (
+          <Center p="8"><Spinner /></Center>
+        ) : schedules.length === 0 ? (
+          <Text p="6" color={secondaryText} textAlign="center">
+            {error ? 'Timetable data could not be loaded.' : 'No timetable records are available for this class.'}
+          </Text>
+        ) : (
+          <Box overflowX="auto">
+            <Table size="sm" variant="striped">
+              <Thead bg={headerBg}>
+                <Tr><Th>Time</Th>{days.map((day) => <Th key={day}>{day}</Th>)}</Tr>
+              </Thead>
+              <Tbody>
+                {timeSlots.map((slot) => (
+                  <Tr key={slot.key}>
+                    <Td whiteSpace="nowrap">{formatTime(slot.startTime)}–{formatTime(slot.endTime)}</Td>
+                    {days.map((day) => {
+                      const entries = schedules.filter((schedule) =>
+                        schedule.dayName === day &&
+                        schedule.startTime === slot.startTime &&
+                        schedule.endTime === slot.endTime
+                      );
+                      return (
+                        <Td key={`${slot.key}-${day}`}>
+                          {entries.length ? entries.map((entry) => (
+                            <Box key={entry.id} mb="1">
+                              <Text fontWeight="semibold">{entry.subject || '—'}</Text>
+                              <Text fontSize="xs" color={secondaryText}>
+                                {[entry.teacherName, entry.room].filter(Boolean).join(' • ') || '—'}
+                              </Text>
+                            </Box>
+                          )) : '—'}
+                        </Td>
+                      );
+                    })}
+                  </Tr>
                 ))}
-              </Tr>
-            ))}
-          </Tbody>
-        </Table>
+              </Tbody>
+            </Table>
+          </Box>
+        )}
       </Card>
 
-      <Card p='16px'>
-        <BarChart chartData={chartData} chartOptions={{ xaxis: { categories: days }, colors: ['#805AD5'] }} height={220} />
-      </Card>
-
-      <Modal isOpen={isOpen} onClose={onClose} isCentered>
-        <ModalOverlay />
-        <ModalContent>
-          <ModalHeader>Period Details</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            {selectedDetail ? (
-              <VStack align='start' spacing={2}>
-                <Text><b>Day:</b> {selectedDetail.day}</Text>
-                <Text><b>Time:</b> {selectedDetail.time}</Text>
-                <Text><b>Subject:</b> {selectedDetail.subject}</Text>
-                <Text><b>Class:</b> {selectedDetail.className}</Text>
-                <Text><b>Room:</b> {selectedDetail.room}</Text>
-                <Text><b>Teacher:</b> Notified</Text>
-                <Badge colorScheme='green'>Hardcoded Demo</Badge>
-              </VStack>
-            ) : null}
-          </ModalBody>
-          <ModalFooter>
-            <Button onClick={onClose}>Close</Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
+      {selectedDayName && schedules.length > 0 && (
+        <Card mt="16px" p="16px">
+          <Text fontWeight="bold" mb="10px">{selectedDayName} schedule</Text>
+          <Table size="sm">
+            <Thead><Tr><Th>Time</Th><Th>Subject</Th><Th>Teacher</Th><Th>Room</Th></Tr></Thead>
+            <Tbody>
+              {schedules.filter((schedule) => schedule.dayName === selectedDayName).map((schedule) => (
+                <Tr key={schedule.id}>
+                  <Td>{formatTime(schedule.startTime)}–{formatTime(schedule.endTime)}</Td>
+                  <Td>{schedule.subject || '—'}</Td>
+                  <Td>{schedule.teacherName || '—'}</Td>
+                  <Td>{schedule.room || '—'}</Td>
+                </Tr>
+              ))}
+            </Tbody>
+          </Table>
+        </Card>
+      )}
     </Box>
   );
 }

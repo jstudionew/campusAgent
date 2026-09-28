@@ -73,7 +73,7 @@ const gradeFromPct = (pct) => {
 };
 
 // --- Student Reports ---
-router.get('/student/attendance', async (req, res) => {
+router.get('/student/attendance', requirePermission('reports', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -141,28 +141,32 @@ router.get('/student/attendance', async (req, res) => {
   }
 });
 
-router.get('/student/performance', async (req, res) => {
+router.get('/student/performance', requirePermission('reports', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
-    if (!campusId) return res.json([]);
+    if (!campusId && !['owner', 'superadmin'].includes(req.user?.role)) {
+      return res.status(400).json({ error: 'Campus context is required for this report.' });
+    }
 
     const klass = req.query?.class ? String(req.query.class) : null;
     const examType = req.query?.examType ? String(req.query.examType) : null;
 
-    const params = [campusId];
-    let p = params.length;
-    const where = [`s.campus_id = $${p}`];
+    const params = [];
+    const where = [];
+
+    if (campusId) {
+      params.push(campusId);
+      where.push(`s.campus_id = $${params.length}`);
+    }
 
     if (klass) {
       params.push(klass);
-      p = params.length;
-      where.push(`s.class = $${p}`);
+      where.push(`s.class = $${params.length}`);
     }
 
     if (examType) {
       params.push(`%${examType}%`);
-      p = params.length;
-      where.push(`COALESCE(e.title,'') ILIKE $${p}`);
+      where.push(`COALESCE(e.title,'') ILIKE $${params.length}`);
     }
 
     const { rows } = await query(
@@ -171,23 +175,47 @@ router.get('/student/performance', async (req, res) => {
             s.id AS student_id,
             s.name AS student_name,
             s.class AS class_name,
-            COUNT(er.subject)::int AS subjects,
-            COALESCE(SUM(er.marks), 0)::numeric AS obtained
+            COUNT(er.marks)::int AS scored_subjects,
+            COUNT(cs.full_marks) FILTER (WHERE er.marks IS NOT NULL)::int AS subjects_with_full_marks,
+            COALESCE(SUM(er.marks), 0)::numeric AS obtained,
+            SUM(cs.full_marks) FILTER (WHERE er.marks IS NOT NULL)::numeric AS configured_total,
+            STRING_AGG(DISTINCT NULLIF(TRIM(er.grade), ''), ', ' ORDER BY NULLIF(TRIM(er.grade), '')) AS recorded_grades
           FROM students s
-          LEFT JOIN exam_results er ON er.student_id = s.id
-          LEFT JOIN exams e ON e.id = er.exam_id
-          WHERE ${where.join(' AND ')}
+          LEFT JOIN exam_results er
+            ON er.student_id = s.id
+           AND (er.campus_id IS NULL OR er.campus_id = s.campus_id)
+          LEFT JOIN exams e
+            ON e.id = er.exam_id
+           AND (e.campus_id IS NULL OR e.campus_id = s.campus_id)
+          LEFT JOIN LATERAL (
+            SELECT cs.class_section_id
+            FROM class_sections csec
+            JOIN class_subjects cs ON cs.class_section_id = csec.id
+            JOIN subjects subj ON subj.id = cs.subject_id
+            WHERE csec.class_name = s.class
+              AND csec.section = s.section
+              AND (csec.campus_id IS NULL OR csec.campus_id = s.campus_id)
+              AND LOWER(subj.name) = LOWER(er.subject)
+            ORDER BY (csec.status = 'active') DESC, csec.updated_at DESC
+            LIMIT 1
+          ) class_subject ON TRUE
+          LEFT JOIN class_subjects cs
+            ON cs.class_section_id = class_subject.class_section_id
+           AND cs.full_marks IS NOT NULL
+          LEFT JOIN subjects subj ON subj.id = cs.subject_id AND LOWER(subj.name) = LOWER(er.subject)
+          WHERE ${where.length ? where.join(' AND ') : 'TRUE'}
           GROUP BY s.id, s.name, s.class
+          HAVING COUNT(er.marks) > 0
        ), ranked AS (
           SELECT
             student_id,
             student_name,
             class_name,
-            subjects,
+            scored_subjects,
+            subjects_with_full_marks,
             obtained,
-            (subjects * 100)::numeric AS total_marks,
-            CASE WHEN subjects > 0 THEN (obtained / NULLIF((subjects * 100), 0) * 100) ELSE 0 END AS pct,
-            RANK() OVER (PARTITION BY class_name ORDER BY obtained DESC) AS pos
+            CASE WHEN scored_subjects = subjects_with_full_marks THEN configured_total END AS total_marks,
+            recorded_grades
           FROM per
        )
        SELECT
@@ -195,22 +223,19 @@ router.get('/student/performance', async (req, res) => {
          class_name AS "className",
          total_marks AS "totalMarks",
          obtained AS "obtainedMarks",
-         ROUND(pct::numeric, 2) AS pct,
-         pos::int AS position
+         recorded_grades AS grade
        FROM ranked
-       ORDER BY class_name NULLS LAST, position ASC, "studentName" ASC`,
+       ORDER BY class_name NULLS LAST, obtained DESC, "studentName" ASC`,
       params
     );
 
     const data = rows.map((r) => {
-      const pct = Number(r.pct || 0);
       return {
         studentName: r.studentName,
         className: r.className,
-        totalMarks: Number(r.totalMarks || 0),
+        totalMarks: r.totalMarks === null ? null : Number(r.totalMarks),
         obtainedMarks: Number(r.obtainedMarks || 0),
-        grade: gradeFromPct(pct),
-        position: Number(r.position || 0),
+        grade: r.grade || null,
       };
     });
 
@@ -221,7 +246,7 @@ router.get('/student/performance', async (req, res) => {
 });
 
 // --- Fees Reports ---
-router.get('/fees/collection', async (req, res) => {
+router.get('/fees/collection', requirePermission('finance', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -231,7 +256,7 @@ router.get('/fees/collection', async (req, res) => {
 
     const params = [campusId];
     let p = params.length;
-    const where = [`fp.campus_id = $${p}`, `fp.user_type = 'student'`];
+    const where = [`fi.campus_id = $${p}`, `fp.user_type = 'student'`];
 
     if (startDate) {
       params.push(startDate);
@@ -253,6 +278,7 @@ router.get('/fees/collection', async (req, res) => {
          fp.amount::numeric AS amount,
          COALESCE(fp.method, 'other') AS "paymentMode"
        FROM finance_payments fp
+       JOIN finance_invoices fi ON fi.id = fp.invoice_id
        LEFT JOIN finance_receipts fr ON fr.payment_id = fp.id
        LEFT JOIN students s ON s.id = fp.user_id
        WHERE ${where.join(' AND ')}
@@ -267,7 +293,7 @@ router.get('/fees/collection', async (req, res) => {
   }
 });
 
-router.get('/fees/outstanding', async (req, res) => {
+router.get('/fees/outstanding', requirePermission('finance', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -312,7 +338,7 @@ router.get('/fees/outstanding', async (req, res) => {
 });
 
 // --- Financial Reports ---
-router.get('/financial/income', async (req, res) => {
+router.get('/financial/income', requirePermission('finance', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -322,7 +348,7 @@ router.get('/financial/income', async (req, res) => {
 
     const params = [campusId];
     let p = params.length;
-    const where = [`fp.campus_id = $${p}`];
+    const where = [`fi.campus_id = $${p}`];
 
     if (startDate) {
       params.push(startDate);
@@ -343,7 +369,7 @@ router.get('/financial/income', async (req, res) => {
          COALESCE(fp.method, 'other') AS "paymentMethod",
          fp.amount::numeric AS amount
        FROM finance_payments fp
-       LEFT JOIN finance_invoices fi ON fi.id = fp.invoice_id
+       JOIN finance_invoices fi ON fi.id = fp.invoice_id
        WHERE ${where.join(' AND ')}
        ORDER BY fp.paid_at DESC, fp.id DESC
        LIMIT 2000`,
@@ -356,7 +382,7 @@ router.get('/financial/income', async (req, res) => {
   }
 });
 
-router.get('/financial/expense', async (req, res) => {
+router.get('/financial/expense', requirePermission('finance', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -400,7 +426,7 @@ router.get('/financial/expense', async (req, res) => {
 });
 
 // --- Attendance Reports ---
-router.get('/attendance/daily', async (req, res) => {
+router.get('/attendance/daily', requirePermission('attendance', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -446,7 +472,7 @@ router.get('/attendance/daily', async (req, res) => {
   }
 });
 
-router.get('/attendance/monthly', async (req, res) => {
+router.get('/attendance/monthly', requirePermission('attendance', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -535,7 +561,7 @@ router.get('/attendance/monthly', async (req, res) => {
 });
 
 // --- HR Reports ---
-router.get('/hr/employee', async (req, res) => {
+router.get('/hr/employee', requirePermission('hr', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -569,7 +595,7 @@ router.get('/hr/employee', async (req, res) => {
   } catch (e) { res.status(500).json({ error: e.message }); }
 });
 
-router.get('/hr/salary', async (req, res) => {
+router.get('/hr/salary', requirePermission('hr', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -587,7 +613,7 @@ router.get('/hr/salary', async (req, res) => {
          tp.status AS status
        FROM teacher_payrolls tp
        JOIN teachers t ON t.id = tp.teacher_id
-       WHERE tp.campus_id = $1
+       WHERE t.campus_id = $1
          AND tp.period_month >= $2
          AND tp.period_month <= $3
        ORDER BY t.name ASC`,
@@ -599,7 +625,7 @@ router.get('/hr/salary', async (req, res) => {
 });
 
 // --- Examination Reports ---
-router.get('/exam/results', async (req, res) => {
+router.get('/exam/results', requirePermission('marks', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -642,6 +668,7 @@ router.get('/exam/results', async (req, res) => {
          LEFT JOIN exams e ON e.id = er.exam_id
          WHERE ${where.join(' AND ')}
          GROUP BY s.id, s.name, s.roll_number
+         HAVING COUNT(er.marks) > 0
        )
        SELECT
          "studentName",
@@ -669,7 +696,7 @@ router.get('/exam/results', async (req, res) => {
   }
 });
 
-router.get('/exam/grades', async (req, res) => {
+router.get('/exam/grades', requirePermission('marks', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -710,6 +737,7 @@ router.get('/exam/grades', async (req, res) => {
          LEFT JOIN exams e ON e.id = er.exam_id
          WHERE ${where.join(' AND ')}
          GROUP BY s.id
+         HAVING COUNT(er.marks) > 0
        ), scored AS (
          SELECT
            id,
@@ -756,7 +784,7 @@ router.get('/exam/grades', async (req, res) => {
 });
 
 // --- Inventory Reports ---
-router.get('/inventory/stock', async (req, res) => {
+router.get('/inventory/stock', requirePermission('library', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);
@@ -785,7 +813,7 @@ router.get('/inventory/stock', async (req, res) => {
   }
 });
 
-router.get('/inventory/purchase', async (req, res) => {
+router.get('/inventory/purchase', requirePermission('library', 'view'), async (req, res) => {
   try {
     const campusId = getCampusId(req);
     if (!campusId) return res.json([]);

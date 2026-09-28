@@ -43,6 +43,8 @@ export const profile = async () => {
   return http.get('/auth/profile');
 };
 
+export const updateMyProfile = (data) => http.put('/auth/profile', data);
+
 export const profileSafe = async (options = {}) => {
   return http.get('/auth/profile', { ...options, skipUnauthorizedHandler: true });
 };

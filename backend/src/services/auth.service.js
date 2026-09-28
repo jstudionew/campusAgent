@@ -1,4 +1,4 @@
-import { query } from '../config/db.js';
+import { pool, query } from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
 
@@ -21,18 +21,147 @@ const normalizePkPhone = (raw) => {
 };
 
 export const findUserByEmail = async (email) => {
-  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [email]);
+  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [email]);
   return rows[0] || null;
 };
 
 export const findUserByUsername = async (username) => {
-  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1))', [username]);
+  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1))', [username]);
   return rows[0] || null;
 };
 
 export const findUserById = async (id) => {
-  const { rows } = await query('SELECT id, email, username, role, name, campus_id, job_title, department FROM users WHERE id = $1', [id]);
+  const { rows } = await query('SELECT id, email, username, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE id = $1', [id]);
   return rows[0] || null;
+};
+
+export const findOwnProfile = async (id) => {
+  const user = await findUserById(id);
+  if (!user) return null;
+
+  const profileTables = {
+    teacher: `SELECT name, email, phone, avatar, designation AS job_title, department
+              FROM teachers WHERE user_id = $1 LIMIT 1`,
+    student: `SELECT name, email, personal->>'phone' AS phone, avatar
+              FROM students WHERE user_id = $1 LIMIT 1`,
+    driver: `SELECT name, email, phone, avatar
+             FROM drivers WHERE user_id = $1 LIMIT 1`,
+  };
+  const profileSql = profileTables[user.role];
+  if (!profileSql) return user;
+
+  const { rows } = await query(profileSql, [id]);
+  const linkedProfile = rows[0];
+  if (!linkedProfile) return user;
+  for (const field of ['name', 'email', 'phone', 'avatar', 'job_title', 'department']) {
+    if ((user[field] === null || user[field] === undefined || user[field] === '') && linkedProfile[field]) {
+      user[field] = linkedProfile[field];
+    }
+  }
+  return user;
+};
+
+export const findUserCredentialsById = async (id) => {
+  const { rows } = await query('SELECT id, password_hash FROM users WHERE id = $1', [id]);
+  return rows[0] || null;
+};
+
+export const updateOwnProfile = async (id, updates, { expectedRole } = {}) => {
+  const userColumns = {
+    name: 'name',
+    username: 'username',
+    email: 'email',
+    phone: 'phone',
+    avatar: 'avatar',
+    jobTitle: 'job_title',
+    department: 'department',
+    passwordHash: 'password_hash',
+  };
+  const domainColumns = {
+    name: 'name',
+    email: 'email',
+    phone: 'phone',
+    avatar: 'avatar',
+  };
+  const client = await pool.connect();
+
+  try {
+    await client.query('BEGIN');
+    const { rows: currentUsers } = await client.query(
+      'SELECT id, role FROM users WHERE id = $1 FOR UPDATE',
+      [id]
+    );
+    const currentUser = currentUsers[0];
+    if (!currentUser) {
+      await client.query('ROLLBACK');
+      return null;
+    }
+    if (expectedRole && currentUser.role !== expectedRole) {
+      const error = new Error('Account role changed. Reload your profile and try again.');
+      error.code = 'PROFILE_ROLE_CHANGED';
+      throw error;
+    }
+
+    const fields = Object.keys(updates).filter((key) => userColumns[key]);
+    const values = [];
+    const assignments = fields.map((key) => {
+      values.push(updates[key]);
+      return `${userColumns[key]} = $${values.length}`;
+    });
+    values.push(id);
+    const { rows } = await client.query(
+      `UPDATE users SET ${assignments.join(', ')} WHERE id = $${values.length}
+       RETURNING id, username, email, role, name, campus_id, job_title, department, phone, avatar`,
+      values
+    );
+    const updatedUser = rows[0];
+
+    const linkedColumns = currentUser.role === 'teacher'
+      ? { ...domainColumns, jobTitle: 'designation', department: 'department' }
+      : domainColumns;
+    const profileFields = Object.keys(updates).filter((key) => linkedColumns[key]);
+    if (profileFields.length) {
+      const roleTables = {
+        teacher: 'teachers',
+        student: 'students',
+        driver: 'drivers',
+      };
+      const table = roleTables[currentUser.role];
+      if (table) {
+        const domainValues = [];
+        const domainAssignments = profileFields
+          .filter((key) => !(currentUser.role === 'student' && key === 'phone'))
+          .map((key) => {
+            domainValues.push(updates[key]);
+            return `${linkedColumns[key]} = $${domainValues.length}`;
+          });
+
+        if (currentUser.role === 'student' && Object.hasOwn(updates, 'phone')) {
+          domainValues.push(updates.phone);
+          domainAssignments.push(
+            `personal = COALESCE(personal, '{}'::jsonb) || jsonb_build_object('phone', $${domainValues.length}::text)`
+          );
+        }
+        if (table !== 'students') domainAssignments.push('updated_at = NOW()');
+
+        if (domainAssignments.length) {
+          domainValues.push(id);
+          await client.query(
+            `UPDATE ${table} SET ${domainAssignments.join(', ')} WHERE user_id = $${domainValues.length}`,
+            domainValues
+          );
+        }
+      }
+    }
+
+    await client.query('COMMIT');
+    return updatedUser;
+  } catch (error) {
+    await client.query('ROLLBACK');
+    throw error;
+  } finally {
+    client.release();
+  }
 };
 
 // Create new user (admin only)
@@ -160,7 +289,13 @@ export const backfillUsersFromDomain = async (role) => {
   return { created: created.length, items: created };
 };
 
-export const ensureOwnerUser = async ({ email, password, name, username = 'campusagent' }) => {
+export const ensureOwnerUser = async ({
+  email,
+  password,
+  name,
+  username = 'campusagent',
+  syncExisting = false,
+}) => {
   const ownerEmail = String(email || '').trim();
   const ownerUsername = String(username || 'campusagent').trim();
   const ownerName = name || 'CampusAgent Admin';
@@ -184,7 +319,7 @@ export const ensureOwnerUser = async ({ email, password, name, username = 'campu
   }
 
   const { rows } = await query(
-    `SELECT id, role, password_hash FROM users
+    `SELECT id, role, username, campus_id FROM users
      WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))
         OR LOWER(TRIM(COALESCE(username, ''))) = LOWER(TRIM($2))
      ORDER BY CASE WHEN LOWER(TRIM(COALESCE(username, ''))) = LOWER(TRIM($2)) THEN 0 ELSE 1 END
@@ -193,14 +328,36 @@ export const ensureOwnerUser = async ({ email, password, name, username = 'campu
   );
 
   let id = rows[0]?.id;
+  let matchedLegacyOwner = Boolean(
+    rows[0]?.role === 'admin' &&
+    !rows[0]?.campus_id &&
+    ['owner', 'admin'].includes(String(rows[0]?.username || '').toLowerCase())
+  );
   if (!id) {
     const { rows: legacy } = await query(
-      `SELECT id FROM users
+      `SELECT id, role FROM users
        WHERE role = 'owner'
-          OR LOWER(COALESCE(username, '')) IN ('owner', 'admin')
+          OR (
+            role = 'admin'
+            AND LOWER(COALESCE(username, '')) IN ('owner', 'admin')
+            AND campus_id IS NULL
+          )
        ORDER BY id ASC LIMIT 1`
     );
     id = legacy[0]?.id;
+    if (legacy[0]) rows.push(legacy[0]);
+    matchedLegacyOwner = Boolean(legacy[0]);
+  }
+
+  const existingRole = rows.find((row) => Number(row.id) === Number(id))?.role;
+  if (id && existingRole !== 'owner' && !matchedLegacyOwner) {
+    throw new Error('Configured owner identity conflicts with a non-owner account; refusing to change its role.');
+  }
+  if (id && !syncExisting) {
+    if (matchedLegacyOwner && existingRole !== 'owner') {
+      await query("UPDATE users SET role = 'owner' WHERE id = $1", [id]);
+    }
+    return { id, unchanged: true };
   }
 
   const passwordHash = await bcrypt.hash(password, 10);
@@ -219,18 +376,7 @@ export const ensureOwnerUser = async ({ email, password, name, username = 'campu
     id = ins.rows[0]?.id;
   }
 
-  try {
-    await query(
-      `DELETE FROM users
-       WHERE id <> $1
-         AND (
-           role IN ('owner', 'admin') AND LOWER(COALESCE(username, '')) IN ('owner', 'admin') AND campus_id IS NULL
-         )`,
-      [id]
-    );
-  } catch (_) { }
-
-  return { id };
+  return { id, unchanged: false };
 };
 
 export const findParentByPhone = async (phone) => {

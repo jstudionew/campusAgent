@@ -1,4 +1,4 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Box,
   Flex,
@@ -9,23 +9,9 @@ import {
   VStack,
   Badge,
   Icon,
+  Alert,
+  AlertIcon,
   useColorModeValue,
-  Wrap,
-  WrapItem,
-  Tooltip,
-  useDisclosure,
-  Modal,
-  ModalOverlay,
-  ModalContent,
-  ModalHeader,
-  ModalCloseButton,
-  ModalBody,
-  ModalFooter,
-  useToast,
-  Select,
-  Input,
-  Textarea,
-  Divider,
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../components/card/Card';
@@ -34,70 +20,37 @@ import {
   MdMap,
   MdGpsFixed,
   MdPlace,
-  MdDirectionsBus,
-  MdAccessTime,
-  MdReportProblem,
-  MdPlayArrow,
-  MdStop,
 } from 'react-icons/md';
-import SparklineChart from '../../components/charts/SparklineChart';
-import PieChart from '../../components/charts/PieChart';
 import { useAuth } from '../../contexts/AuthContext';
 import * as driversApi from '../../services/api/drivers';
+import usePolling from '../../hooks/usePolling';
 
 export default function DriverDashboard() {
   const textSecondary = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const subtle = useColorModeValue('brand.50', 'navy.700');
-  const toast = useToast();
-  const sosDisc = useDisclosure();
-  const incidentDisc = useDisclosure();
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [data, setData] = useState({
-    routeName: 'Route 12 - North Campus to Central',
-    stops: 14,
-    progress: 45,
-    gpsStatus: 'Active',
-    nextStop: 'Oak Street & 5th Ave',
-    eta: '8 mins',
-    vehicleId: 'BUS-104',
-    capacity: '32/40 Seats',
-    shift: { start: '07:30 AM', end: '03:30 PM' },
-    lastUpdate: 'Just now',
-    speed: '42 km/h',
-    speedTrend: [25, 30, 42, 38, 45, 42, 40, 48, 42, 35, 40, 42],
-  });
+  const [data, setData] = useState(null);
+  const [loadError, setLoadError] = useState('');
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        if (user?.role === 'driver') {
-          const resp = await driversApi.list({});
-          const items = resp.items || [];
-          if (items.length > 0) {
-            const me = items[0];
-            const stats = await driversApi.getDashboardStats(me.id);
-            if (stats) setData(stats);
-          }
-        }
-      } catch (err) {
-        console.error('Failed to fetch driver stats', err);
+  usePolling(async () => {
+    try {
+      const resp = await driversApi.list({ page: 1, pageSize: 1 });
+      const driver = resp.items?.[0];
+      if (!driver) {
+        setData(null);
+        setLoadError('');
+        return;
       }
-    };
-    if (user?.role === 'driver') {
-      fetchStats();
+      setData(await driversApi.getDashboardStats(driver.id));
+      setLoadError('');
+    } catch (err) {
+      console.error('Failed to refresh driver dashboard data', err);
+      setLoadError('Dashboard data could not be refreshed. Please try again later.');
     }
-  }, [user]);
-
-  const [shiftOn, setShiftOn] = useState(true);
-  const [shiftSince, setShiftSince] = useState('07:30 AM');
-  const [sosType, setSosType] = useState('accident');
-  const [incidentType, setIncidentType] = useState('delay');
-  const [incidentNote, setIncidentNote] = useState('');
-  const completedStops = useMemo(() => Math.round((data.progress / 100) * data.stops), [data.progress, data.stops]);
-  const remainingStops = useMemo(() => Math.max(0, data.stops - completedStops), [data.stops, completedStops]);
+  }, 30000, user?.role === 'driver');
 
   return (
     <Box pt={{ base: '20px', md: '10px' }} pb='40px'>
@@ -108,18 +61,10 @@ export default function DriverDashboard() {
             Driver Transit Console
           </Text>
           <Text fontSize='sm' color={textSecondary}>
-            Active vehicle telemetry, scheduled route, student passenger pickup
+            Assigned route and vehicle information
           </Text>
         </Box>
         <HStack spacing={3}>
-          <Button
-            size='sm'
-            variant='outline'
-            leftIcon={<Icon as={MdDirectionsBus} />}
-            onClick={() => navigate('/driver/pickup-drop')}
-          >
-            Student Manifest
-          </Button>
           <Button
             size='sm'
             variant='brand'
@@ -130,6 +75,13 @@ export default function DriverDashboard() {
           </Button>
         </HStack>
       </Flex>
+
+      {loadError && (
+        <Alert status='error' mb='16px' borderRadius='md'>
+          <AlertIcon />
+          {loadError}
+        </Alert>
+      )}
 
       {/* Top KPIs */}
       <SimpleGrid columns={{ base: 1, sm: 2, lg: 4 }} spacing='16px' mb='24px'>
@@ -147,17 +99,17 @@ export default function DriverDashboard() {
                   Assigned Route
                 </Text>
                 <Text fontSize='xs' color={textSecondary} noOfLines={1} maxW={{ base: '140px', md: '180px' }}>
-                  {data.routeName}
+                  {data?.routeName || 'No route assigned'}
                 </Text>
               </Box>
             </HStack>
             <Badge colorScheme='blue' borderRadius='6px' px='2'>
-              {data.stops} stops
+              {data?.stops ?? '—'} stops
             </Badge>
           </Flex>
-          <Box mt='14px' h='8px' bg={useColorModeValue('secondaryGray.200', 'whiteAlpha.100')} borderRadius='full'>
-            <Box h='100%' w={`${data.progress}%`} bg='brand.500' borderRadius='full' />
-          </Box>
+          <Text fontSize='xs' color={textSecondary} mt='14px'>
+            Route completion is unavailable without live stop tracking.
+          </Text>
         </Card>
 
         <Card p='20px'>
@@ -174,16 +126,16 @@ export default function DriverDashboard() {
                   Live Telemetry
                 </Text>
                 <Text fontSize='xs' color={textSecondary}>
-                  GPS: {data.gpsStatus}
+                  Live GPS: Not configured
                 </Text>
               </Box>
             </HStack>
-            <Badge colorScheme='green' borderRadius='6px' px='2'>
-              {data.speed}
+            <Badge colorScheme='gray' borderRadius='6px' px='2'>
+              No live telemetry
             </Badge>
           </Flex>
           <Text fontSize='xs' color={textSecondary} mt='14px'>
-            Updated {data.lastUpdate}
+            This system has no connected GPS or speed data source.
           </Text>
         </Card>
 
@@ -198,19 +150,16 @@ export default function DriverDashboard() {
               />
               <Box>
                 <Text fontWeight='700' fontSize='sm' color={textColor}>
-                  Next Pickup
+                  First Stop on Assigned Route
                 </Text>
                 <Text fontSize='xs' color={textSecondary} noOfLines={1} maxW={{ base: '140px', md: '180px' }}>
-                  {data.nextStop}
+                  {data?.firstRouteStop || 'No route stop assigned'}
                 </Text>
               </Box>
             </HStack>
-            <Badge colorScheme='orange' borderRadius='6px' px='2'>
-              ETA {data.eta}
-            </Badge>
           </Flex>
           <Text fontSize='xs' color={textSecondary} mt='14px'>
-            Stop #{completedStops + 1} of {data.stops}
+            Arrival time is unavailable without live tracking.
           </Text>
         </Card>
 
@@ -225,19 +174,19 @@ export default function DriverDashboard() {
               />
               <Box>
                 <Text fontWeight='700' fontSize='sm' color={textColor}>
-                  Vehicle Identity
+                  Assigned Vehicle
                 </Text>
                 <Text fontSize='xs' color={textSecondary}>
-                  {data.vehicleId}
+                  {data?.vehicleId || 'No vehicle assigned'}
                 </Text>
               </Box>
             </HStack>
             <Badge variant='outline' borderRadius='6px' px='2'>
-              {data.capacity}
+              {data?.capacity == null ? 'Capacity not recorded' : `${data.capacity} seats`}
             </Badge>
           </Flex>
           <Text fontSize='xs' color={textSecondary} mt='14px'>
-            Pre-trip inspection verified
+            Inspection status is not available from the connected services.
           </Text>
         </Card>
       </SimpleGrid>
@@ -262,235 +211,26 @@ export default function DriverDashboard() {
           >
             <Icon as={MdMap} w='36px' h='36px' color='brand.500' />
             <Text fontSize='sm' fontWeight='600' color={textColor}>
-              Active Transit GPS Tracking
+              Live GPS tracking is not configured for this deployment.
             </Text>
-            <Button
-              size='sm'
-              variant='brand'
-              mt='2'
-              onClick={() => navigate('/driver/live-tracking')}
-            >
-              Open Fullscreen Navigation
+            <Button size='sm' variant='outline' mt='2' onClick={() => navigate('/driver/live-tracking')}>
+              View route details
             </Button>
           </Box>
         </Card>
 
         <Card p='20px'>
           <Text fontSize='lg' fontWeight='800' color={textColor} mb='12px'>
-            Shift Operations & Emergency
+            Shift Operations
           </Text>
-          <HStack spacing={3} mb='16px' flexWrap='wrap'>
-            <Badge colorScheme='green' borderRadius='6px' px='2.5' py='1'>
-              Start {data.shift.start}
-            </Badge>
-            <Badge colorScheme='red' borderRadius='6px' px='2.5' py='1'>
-              End {data.shift.end}
-            </Badge>
-            {shiftOn ? (
-              <Badge colorScheme='blue' borderRadius='6px' px='2.5' py='1'>
-                Active on duty • {shiftSince}
-              </Badge>
-            ) : (
-              <Badge colorScheme='gray' borderRadius='6px' px='2.5' py='1'>
-                Off Duty
-              </Badge>
-            )}
-          </HStack>
-
-          <Wrap spacing='10px' mb='16px'>
-            <WrapItem>
-              <Tooltip label='Start duty and activate student tracking'>
-                <Button
-                  size='sm'
-                  leftIcon={<Icon as={MdPlayArrow} />}
-                  colorScheme='green'
-                  onClick={() => {
-                    setShiftOn(true);
-                    setShiftSince(new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }));
-                    toast({ status: 'success', title: 'Shift active', description: 'GPS tracking is broadcasting' });
-                  }}
-                >
-                  Start Shift
-                </Button>
-              </Tooltip>
-            </WrapItem>
-            <WrapItem>
-              <Tooltip label='End active duty'>
-                <Button
-                  size='sm'
-                  leftIcon={<Icon as={MdStop} />}
-                  colorScheme='red'
-                  variant='outline'
-                  onClick={() => {
-                    if (!shiftOn) {
-                      toast({ status: 'info', title: 'Shift is not active' });
-                      return;
-                    }
-                    setShiftOn(false);
-                    toast({ status: 'success', title: 'Shift ended successfully' });
-                  }}
-                >
-                  End Shift
-                </Button>
-              </Tooltip>
-            </WrapItem>
-            <WrapItem>
-              <Tooltip label='Instant emergency signal to control room'>
-                <Button
-                  size='sm'
-                  leftIcon={<Icon as={MdReportProblem} />}
-                  colorScheme='orange'
-                  onClick={sosDisc.onOpen}
-                >
-                  Emergency SOS
-                </Button>
-              </Tooltip>
-            </WrapItem>
-            <WrapItem>
-              <Tooltip label='Report delays, traffic, or vehicle issue'>
-                <Button
-                  size='sm'
-                  leftIcon={<Icon as={MdReportProblem} />}
-                  variant='outline'
-                  onClick={incidentDisc.onOpen}
-                >
-                  Report Incident
-                </Button>
-              </Tooltip>
-            </WrapItem>
-          </Wrap>
-
           <Box p='14px' bg={subtle} borderWidth='1px' borderColor={useColorModeValue('brand.100', 'whiteAlpha.100')} borderRadius='12px'>
-            <Flex justify='space-between' align='center' mb='8px'>
-              <Text fontSize='xs' fontWeight='700' textTransform='uppercase' color={textSecondary}>
-                Route Completion
-              </Text>
-              <Text fontSize='xs' fontWeight='800' color='brand.500'>
-                {completedStops} of {data.stops} Stops
-              </Text>
-            </Flex>
-            <Box h='8px' bg={useColorModeValue('secondaryGray.200', 'whiteAlpha.200')} borderRadius='full'>
-              <Box h='100%' w={`${data.progress}%`} bg='brand.500' borderRadius='full' />
-            </Box>
+            <Text fontSize='sm' color={textSecondary}>
+              Shift scheduling and emergency reporting are not connected to backend services yet.
+            </Text>
           </Box>
         </Card>
       </SimpleGrid>
 
-      {/* Mini analytics */}
-      <SimpleGrid columns={{ base: 1, md: 2 }} spacing='20px' mt='20px'>
-        <Card p='20px'>
-          <HStack justify='space-between' align='start' mb='12px'>
-            <VStack align='start' spacing={0}>
-              <Text fontSize='md' fontWeight='800' color={textColor}>
-                Speed Trend Telemetry
-              </Text>
-              <Text fontSize='xs' color={textSecondary}>
-                Real-time safety monitor (speed limit: 50 km/h)
-              </Text>
-            </VStack>
-            <Badge colorScheme='blue' borderRadius='6px' px='2.5' py='1'>
-              {data.speed}
-            </Badge>
-          </HStack>
-          <Box mt='8px'>
-            <SparklineChart data={data.speedTrend} color='#2563EB' height={70} valueFormatter={(v) => `${v} km/h`} />
-          </Box>
-        </Card>
-
-        <Card p='20px'>
-          <Text fontSize='md' fontWeight='800' color={textColor} mb='12px'>
-            Stop Progress Breakdown
-          </Text>
-          <PieChart
-            chartData={[completedStops, remainingStops]}
-            chartOptions={{
-              labels: ['Completed', 'Remaining'],
-              colors: ['#10B981', '#94A3B8'],
-              legend: { show: true, position: 'right' },
-            }}
-          />
-        </Card>
-      </SimpleGrid>
-
-      {/* SOS Modal */}
-      <Modal isOpen={sosDisc.isOpen} onClose={sosDisc.onClose} isCentered>
-        <ModalOverlay backdropFilter='blur(4px)' />
-        <ModalContent borderRadius='16px'>
-          <ModalHeader color='red.500' fontWeight='800'>
-            Broadcast Emergency SOS
-          </ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack align='stretch' spacing={3}>
-              <Text fontSize='sm' color={textSecondary}>
-                Select emergency category. Your real-time GPS coordinates will be instantly dispatched to school administration and campus security.
-              </Text>
-              <Select value={sosType} onChange={(e) => setSosType(e.target.value)} borderRadius='10px'>
-                <option value='accident'>Vehicle Accident</option>
-                <option value='medical'>Student Medical Emergency</option>
-                <option value='security'>Security / Disturbance Threat</option>
-                <option value='vehicle'>Engine Breakdown / Flat Tire</option>
-              </Select>
-              <Input placeholder='Specific Landmark / Location details (optional)' borderRadius='10px' />
-            </VStack>
-          </ModalBody>
-          <ModalFooter gap={2}>
-            <Button variant='outline' onClick={sosDisc.onClose}>
-              Cancel
-            </Button>
-            <Button
-              colorScheme='red'
-              onClick={() => {
-                sosDisc.onClose();
-                toast({ status: 'warning', title: `SOS Dispatched (${sosType.toUpperCase()})`, description: 'Campus security has been alerted.' });
-              }}
-            >
-              Broadcast SOS
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
-
-      {/* Incident Modal */}
-      <Modal isOpen={incidentDisc.isOpen} onClose={incidentDisc.onClose} isCentered>
-        <ModalOverlay backdropFilter='blur(4px)' />
-        <ModalContent borderRadius='16px'>
-          <ModalHeader fontWeight='800'>Report Route Incident</ModalHeader>
-          <ModalCloseButton />
-          <ModalBody>
-            <VStack align='stretch' spacing={3}>
-              <Select value={incidentType} onChange={(e) => setIncidentType(e.target.value)} borderRadius='10px'>
-                <option value='delay'>Traffic Jam / Road Delay</option>
-                <option value='behavior'>Student Discipline Incident</option>
-                <option value='traffic'>Road Blockage / Detour</option>
-                <option value='vehicle'>Minor Vehicle Maintenance</option>
-              </Select>
-              <Textarea
-                placeholder='Detail the event and affected stops...'
-                value={incidentNote}
-                onChange={(e) => setIncidentNote(e.target.value)}
-                borderRadius='10px'
-              />
-              <Input type='file' accept='image/*' borderRadius='10px' pt='4px' />
-            </VStack>
-          </ModalBody>
-          <ModalFooter gap={2}>
-            <Button variant='outline' onClick={incidentDisc.onClose}>
-              Cancel
-            </Button>
-            <Button
-              variant='brand'
-              onClick={() => {
-                incidentDisc.onClose();
-                toast({ status: 'success', title: 'Incident logged', description: 'Admin transit report updated.' });
-                setIncidentNote('');
-              }}
-            >
-              Submit Report
-            </Button>
-          </ModalFooter>
-        </ModalContent>
-      </Modal>
     </Box>
   );
 }

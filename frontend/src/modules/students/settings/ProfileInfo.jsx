@@ -9,7 +9,7 @@ import * as studentsApi from '../../../services/api/students';
 
 export default function ProfileInfo(){
   const textSecondary = useColorModeValue('gray.600','gray.400');
-  const { user } = useAuth();
+  const { user, updateSession } = useAuth();
   const toast = useToast();
 
   const [student, setStudent] = useState(null);
@@ -35,7 +35,7 @@ export default function ProfileInfo(){
     roll: '',
     classSection: '',
     email: '',
-    phone: '+92',
+    phone: '',
     address: '',
     parentName: '',
     parentPhone: '',
@@ -49,11 +49,11 @@ export default function ProfileInfo(){
       roll: student.rollNumber || '',
       classSection: `${student.class || ''}${student.section || ''}`,
       email: student.email || '',
-      phone: student.phone || '+92',
-      address: student.address || '',
+      phone: student.phone || '',
+      address: student.personal?.address || '',
       parentName: student.parentName || '',
       parentPhone: student.parentPhone || '',
-      emergency: student.emergency || '',
+      emergency: student.personal?.emergencyContact || '',
     });
   }, [student?.id]);
 
@@ -61,18 +61,24 @@ export default function ProfileInfo(){
 
   const onSave = async ()=>{
     try {
-      await studentsApi.updateMyProfile({
+      const updatedProfile = await studentsApi.updateMyProfile({
         name: form.name,
         email: form.email,
+        phone: form.phone,
         parentName: form.parentName,
         parentPhone: form.parentPhone,
+        personal: {
+          address: form.address,
+          emergencyContact: form.emergency,
+        },
       });
+      if (updatedProfile?.user) updateSession(updatedProfile);
       toast({ status: 'success', title: 'Profile updated' });
       const payload = await studentsApi.list({ pageSize: 1 });
       const me = Array.isArray(payload?.rows) && payload.rows.length ? payload.rows[0] : null;
       setStudent(me);
     } catch (e) {
-      toast({ status: 'error', title: 'Failed to update profile' });
+      toast({ status: 'error', title: 'Failed to update profile', description: e?.data?.message || e?.message });
     }
   };
   const onReset = ()=> setForm({
@@ -80,11 +86,11 @@ export default function ProfileInfo(){
     roll: student?.rollNumber || '',
     classSection,
     email: student?.email || '',
-    phone: student?.phone || '+92',
-    address: student?.address || '',
+    phone: student?.phone || '',
+    address: student?.personal?.address || '',
     parentName: student?.parentName || '',
     parentPhone: student?.parentPhone || '',
-    emergency: student?.emergency || '',
+    emergency: student?.personal?.emergencyContact || '',
   });
 
   const exportTxt = ()=>{
@@ -165,8 +171,8 @@ export default function ProfileInfo(){
             <FormControl><FormLabel>Guardian Name</FormLabel><Input value={form.parentName} onChange={e=>handle('parentName', e.target.value)} /></FormControl>
             <FormControl><FormLabel>Guardian Phone</FormLabel><Input value={form.parentPhone} onChange={e=>handle('parentPhone', e.target.value)} /></FormControl>
             <FormControl gridColumn={{ base:'1', sm:'1 / span 2' }}><FormLabel>Emergency Contact</FormLabel><Input value={form.emergency} onChange={e=>handle('emergency', e.target.value)} /></FormControl>
-            <FormControl><FormLabel>Blood Group</FormLabel><Select placeholder='Select'><option>A+</option><option>A-</option><option>B+</option><option>B-</option><option>O+</option><option>O-</option><option>AB+</option><option>AB-</option></Select></FormControl>
-            <FormControl><FormLabel>Bus Route</FormLabel><Input placeholder='Route number / stop' /></FormControl>
+            <FormControl isReadOnly><FormLabel>Blood Group</FormLabel><Input value={student?.personal?.bloodGroup || 'Not provided'} /></FormControl>
+            <FormControl isReadOnly><FormLabel>Bus Number</FormLabel><Input value={student?.busNumber || 'Not assigned'} /></FormControl>
           </SimpleGrid>
           <Divider my='12px' />
           <HStack>

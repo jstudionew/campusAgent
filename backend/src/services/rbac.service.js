@@ -109,7 +109,13 @@ export const DEFAULT_ROLE_PERMISSIONS = {
 // Map permissions to subroutes
 const PERM_TO_SUBROUTES = {
   // Students
-  'students.view': ['/students/list'],
+  'students.view': [
+    '/students/list',
+    '/students/attendance/daily',
+    '/students/performance',
+    '/students/profile',
+    '/students/parents',
+  ],
   'students.edit': ['/students/add', '/students/edit/:id'],
   'students.manage': ['/students/add', '/students/edit/:id'],
   'students.export': ['/students/list'],
@@ -119,29 +125,62 @@ const PERM_TO_SUBROUTES = {
   'teachers.manage': ['/teachers/add'],
   'teachers.export': ['/teachers/list'],
   // Attendance
-  'attendance.view': ['/attendance/daily', '/attendance/reports'],
-  'attendance.take': ['/attendance/daily', '/attendance/manual'],
+  'attendance.view': [
+    '/attendance/daily',
+    '/attendance/reports',
+    '/attendance/my',
+    '/attendance/qr',
+    '/attendance/monthly',
+    '/attendance/chart',
+  ],
+  'attendance.take': ['/attendance/daily', '/attendance/manual', '/attendance/qr', '/students/attendance/daily'],
   'attendance.edit': ['/attendance/manual'],
   'attendance.export': ['/attendance/reports'],
   // Classes & Academics
-  'classes.view': ['/academics/classes'],
-  'classes.manage': ['/academics/classes'],
-  'timetable.view': ['/academics/timetable'],
-  'timetable.edit': ['/academics/timetable'],
-  'assignments.view': ['/academics/assignments'],
-  'assignments.create': ['/academics/assignments'],
-  'assignments.grade': ['/academics/assignments'],
-  'exams.view': ['/academics/exams'],
-  'exams.create': ['/academics/exams'],
-  'exams.grade': ['/academics/exams'],
-  'marks.view': ['/academics/marks'],
-  'marks.edit': ['/academics/marks'],
+  'classes.view': ['/academics/classes', '/classes/list', '/classes/teachers', '/classes/students'],
+  'classes.manage': ['/academics/classes', '/classes/list', '/classes/students'],
+  'timetable.view': ['/academics/timetable', '/classes/timetable', '/schedule/daily', '/schedule/weekly'],
+  'timetable.edit': ['/academics/timetable', '/classes/timetable', '/schedule/daily', '/schedule/weekly'],
+  'assignments.view': [
+    '/academics/assignments',
+    '/assignments/list',
+    '/assignments/submit',
+    '/assignments/feedback',
+    '/assignments/due-dates',
+    '/assignments/submissions',
+    '/assignments/grading',
+    '/assignments/late-report',
+  ],
+  'assignments.create': ['/academics/assignments', '/assignments/create'],
+  'assignments.grade': ['/academics/assignments', '/assignments/grading', '/assignments/submissions'],
+  'exams.view': [
+    '/academics/exams',
+    '/exams/timetable',
+    '/exams/results',
+    '/exams/grade-card',
+    '/exams/analytics',
+    '/exams/schedule',
+  ],
+  'exams.create': ['/academics/exams', '/exams/schedule'],
+  'exams.grade': ['/academics/exams', '/exams/marks-sheet', '/exams/upload-marks'],
+  'marks.view': ['/academics/marks', '/exams/results', '/exams/grade-card', '/exams/marks-sheet'],
+  'marks.edit': ['/academics/marks', '/exams/marks-sheet', '/exams/upload-marks'],
   // Transport
-  'transport.view': ['/transport/buses', '/transport/routes'],
-  'transport.edit': ['/transport/drivers', '/transport/routes'],
-  'transport.manage': ['/transport/buses', '/transport/drivers', '/transport/routes'],
+  'transport.view': [
+    '/transport/buses',
+    '/transport/routes',
+    '/routes',
+    '/live-tracking',
+    '/pickup-drop',
+    '/checklist',
+    '/incidents',
+    '/shift',
+    '/documents',
+  ],
+  'transport.edit': ['/transport/drivers', '/transport/routes', '/routes', '/pickup-drop', '/checklist'],
+  'transport.manage': ['/transport/buses', '/transport/drivers', '/transport/routes', '/routes', '/live-tracking', '/pickup-drop', '/checklist', '/incidents', '/shift', '/documents'],
   // Finance
-  'finance.view': ['/finance/dashboard', '/finance/invoices'],
+  'finance.view': ['/finance/dashboard', '/finance/invoices', '/fees/status', '/fees/due', '/fees/pay', '/fees/receipts', '/salary'],
   'finance.create': ['/finance/invoices', '/finance/payments'],
   'finance.edit': ['/finance/invoices', '/finance/payments'],
   'finance.export': ['/finance/reports'],
@@ -170,7 +209,7 @@ const PERM_TO_SUBROUTES = {
   'reports.view': ['/reports'],
   'reports.export': ['/reports'],
   // Communication
-  'communication.send': ['/communication/announcements', '/communication/alerts']
+  'communication.send': ['/communication/announcements', '/communication/alerts', '/announcements', '/communications']
 };
 
 export const listRoles = async () => {
@@ -267,8 +306,8 @@ export const listModuleAssignments = async () => {
     try { allowModules = mItem ? JSON.parse(mItem.value) : []; } catch (_) { allowModules = []; }
     try { allowSubroutes = sItem ? JSON.parse(sItem.value) : []; } catch (_) { allowSubroutes = []; }
 
-    // Fallback to defaults if empty
-    if (!allowModules.length && DEFAULT_ROLE_PERMISSIONS[r]) {
+    // Apply role defaults only before an administrator has explicitly configured access.
+    if (!mItem && !sItem && DEFAULT_ROLE_PERMISSIONS[r]) {
       const defPerms = DEFAULT_ROLE_PERMISSIONS[r];
       const displayMap = {
         students: 'Students', teachers: 'Teachers', finance: 'Finance', transport: 'Transport',

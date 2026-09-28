@@ -1,4 +1,3 @@
-import React, { useState, useEffect } from 'react';
 import {
   Box,
   Flex,
@@ -29,6 +28,7 @@ import LineChart from '../../components/charts/LineChart';
 import BarChart from '../../components/charts/BarChart';
 import { useAuth } from '../../contexts/AuthContext';
 import * as teachersApi from '../../services/api/teachers';
+import usePolling from '../../hooks/usePolling';
 
 export default function TeacherDashboard() {
   const textSecondary = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
@@ -36,68 +36,47 @@ export default function TeacherDashboard() {
   const navigate = useNavigate();
   const { user } = useAuth();
 
-  const [stats, setStats] = useState({
-    todaysClasses: 5,
-    students: 124,
-    attendancePending: 1,
-    homeworkDue: 3,
-    alerts: 0,
-    upcomingClass: {
-      className: 'Grade 10-A',
-      subject: 'Mathematics',
-      room: 'Hall B-2',
-      startTime: '10:30 AM',
-      endTime: '11:15 AM',
-    },
-    attendanceTrend: {
-      categories: ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'],
-      series: [{ name: 'Attendance %', data: [92, 94, 91, 95, 96, 0, 0] }],
-    },
-    homeworkStats: {
-      categories: ['Algebra I', 'Geometry', 'Calculus', 'Trig', 'Stats'],
-      series: [
-        { name: 'Submitted', data: [28, 30, 25, 29, 27] },
-        { name: 'Pending', data: [4, 2, 5, 1, 3] },
-      ],
-    },
-  });
+  const [stats, setStats] = useState(null);
 
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const { rows } = await teachersApi.list({});
-        if (rows && rows.length > 0) {
-          const me = rows[0];
-          const data = await teachersApi.getDashboardStats(me.id);
-          if (data) setStats(data);
-        }
-      } catch (err) {
-        console.error('Failed to fetch dashboard stats', err);
+  usePolling(async () => {
+    try {
+      const { rows } = await teachersApi.list({ page: 1, pageSize: 1 });
+      const teacher = rows?.[0];
+      if (!teacher) {
+        setStats(null);
+        return;
       }
-    };
-
-    if (user?.role === 'teacher') {
-      fetchStats();
+      setStats(await teachersApi.getDashboardStats(teacher.id));
+    } catch (err) {
+      console.error('Failed to refresh teacher dashboard stats', err);
     }
-  }, [user]);
+  }, 30000, user?.role === 'teacher');
 
-  const homeworkBarSeries = stats.homeworkStats.series;
+  const homeworkStats = stats?.homeworkStats || {
+    categories: [],
+    series: [{ name: 'Submitted', data: [] }, { name: 'Pending', data: [] }],
+  };
+  const attendanceTrend = stats?.attendanceTrend || {
+    categories: [],
+    series: [{ name: 'Attendance %', data: [] }],
+  };
+  const homeworkBarSeries = homeworkStats.series;
   const homeworkBarOptions = {
     chart: { stacked: true, toolbar: { show: false } },
     plotOptions: { bar: { columnWidth: '40%', borderRadius: 6 } },
     dataLabels: { enabled: false },
-    xaxis: { categories: stats.homeworkStats.categories },
+    xaxis: { categories: homeworkStats.categories },
     grid: { strokeDashArray: 4, borderColor: useColorModeValue('rgba(148, 163, 184, 0.2)', 'rgba(255, 255, 255, 0.05)') },
     colors: ['#10B981', '#F59E0B'],
     legend: { position: 'top' },
   };
 
-  const attendanceTrendSeries = stats.attendanceTrend.series;
+  const attendanceTrendSeries = attendanceTrend.series;
   const attendanceTrendOptions = {
     chart: { toolbar: { show: false } },
     stroke: { curve: 'smooth', width: 3 },
     dataLabels: { enabled: false },
-    xaxis: { categories: stats.attendanceTrend.categories },
+    xaxis: { categories: attendanceTrend.categories },
     yaxis: { labels: { formatter: (v) => `${v}%` }, min: 0, max: 100 },
     grid: { strokeDashArray: 4, borderColor: useColorModeValue('rgba(148, 163, 184, 0.2)', 'rgba(255, 255, 255, 0.05)') },
     colors: ['#2563EB'],
@@ -150,8 +129,7 @@ export default function TeacherDashboard() {
             />
           }
           name="Today's Classes"
-          value={String(stats.todaysClasses)}
-          trendData={[1, 2, 2, 3, 3]}
+          value={stats ? String(stats.todaysClasses) : '—'}
           trendColor='#2563EB'
         />
         <MiniStatistics
@@ -165,8 +143,7 @@ export default function TeacherDashboard() {
             />
           }
           name='Enrolled Students'
-          value={String(stats.students)}
-          trendData={[70, 80, 90, 95, 96]}
+          value={stats ? String(stats.students) : '—'}
           trendColor='#0D9488'
         />
         <MiniStatistics
@@ -180,8 +157,7 @@ export default function TeacherDashboard() {
             />
           }
           name='Attendance Done'
-          value={String(stats.attendancePending === 0 ? 'All' : `${stats.attendancePending} Pending`)}
-          trendData={[3, 2, 2, 1, 2]}
+          value={stats ? String(stats.attendancePending === 0 ? 'All' : `${stats.attendancePending} Pending`) : '—'}
           trendColor='#10B981'
         />
         <MiniStatistics
@@ -195,8 +171,7 @@ export default function TeacherDashboard() {
             />
           }
           name='Homework Due'
-          value={String(stats.homeworkDue)}
-          trendData={[2, 3, 4, 5, 5]}
+          value={stats ? String(stats.homeworkDue) : '—'}
           trendColor='#F59E0B'
         />
         <MiniStatistics
@@ -210,8 +185,7 @@ export default function TeacherDashboard() {
             />
           }
           name='Academic Alerts'
-          value={String(stats.alerts)}
-          trendData={[0, 1, 0, 1, 0]}
+          value={stats ? String(stats.alerts) : '—'}
           trendColor='#EF4444'
         />
       </SimpleGrid>
@@ -222,7 +196,7 @@ export default function TeacherDashboard() {
           <Text fontSize='lg' fontWeight='800' color={textColor} mb='16px'>
             Next Scheduled Class
           </Text>
-          {stats.upcomingClass ? (
+          {stats?.upcomingClass ? (
             <Flex
               justify='space-between'
               align='center'
@@ -238,7 +212,7 @@ export default function TeacherDashboard() {
                   {stats.upcomingClass.className} - {stats.upcomingClass.subject}
                 </Text>
                 <Text fontSize='xs' color={textSecondary}>
-                  Room: {stats.upcomingClass.room || 'Main Hall'}
+                  Room: {stats.upcomingClass.room || 'Not specified'}
                 </Text>
               </VStack>
               <HStack>
@@ -249,7 +223,7 @@ export default function TeacherDashboard() {
             </Flex>
           ) : (
             <Flex justify='center' align='center' h='80px'>
-              <Text color={textSecondary}>No upcoming classes scheduled for today.</Text>
+              <Text color={textSecondary}>No upcoming classes are scheduled for today.</Text>
             </Flex>
           )}
 
@@ -357,7 +331,13 @@ export default function TeacherDashboard() {
             Weekly Attendance Trend
           </Text>
           <Box h={{ base: '240px', md: '280px' }}>
-            <LineChart chartData={attendanceTrendSeries} chartOptions={attendanceTrendOptions} />
+            {attendanceTrendSeries[0]?.data?.some((value) => Number.isFinite(value)) ? (
+              <LineChart chartData={attendanceTrendSeries} chartOptions={attendanceTrendOptions} />
+            ) : (
+              <Text color={textSecondary} fontSize='sm' textAlign='center' py='12'>
+                No attendance records are available for this period.
+              </Text>
+            )}
           </Box>
         </Card>
         <Card p='20px'>
@@ -365,7 +345,13 @@ export default function TeacherDashboard() {
             Homework Submission Status
           </Text>
           <Box h={{ base: '240px', md: '280px' }}>
-            <BarChart chartData={homeworkBarSeries} chartOptions={homeworkBarOptions} />
+            {homeworkStats.categories.length > 0 ? (
+              <BarChart chartData={homeworkBarSeries} chartOptions={homeworkBarOptions} />
+            ) : (
+              <Text color={textSecondary} fontSize='sm' textAlign='center' py='12'>
+                No assignments have been recorded yet.
+              </Text>
+            )}
           </Box>
         </Card>
       </SimpleGrid>
