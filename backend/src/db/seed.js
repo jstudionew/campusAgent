@@ -4,9 +4,7 @@ import { loadEnv } from '../config/env.js';
 import { ensureAuthSchema } from './autoMigrate.js';
 import {
   DEFAULT_ALLOWED_MODULES,
-  DEFAULT_OWNER_EMAIL,
-  DEFAULT_OWNER_NAME,
-  OWNER_USERNAME,
+  resolveOwnerConfig,
 } from '../config/brand.js';
 
 loadEnv();
@@ -20,20 +18,13 @@ async function seed() {
     try { await ensureAuthSchema(); } catch (_) {}
 
     // Ensure Super Admin / Owner account exists with desired credentials
-    const ownerEmail = process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
-    const ownerPassword = process.env.OWNER_PASSWORD;
-    const ownerName = process.env.OWNER_NAME || DEFAULT_OWNER_NAME;
-    const ownerUsername = process.env.OWNER_USERNAME || OWNER_USERNAME;
+    const { email: ownerEmail, username: ownerUsername, name: ownerName, password: ownerPassword } = resolveOwnerConfig();
 
-    if (!ownerPassword && process.env.NODE_ENV === 'production') {
-      throw new Error('Missing required production env: OWNER_PASSWORD');
-    }
-
-    if (!ownerPassword) {
-      console.warn('[seed] OWNER_PASSWORD not set; using a development-only temporary password. Set OWNER_PASSWORD to avoid a bootstrap password drift.');
+    if (!process.env.OWNER_PASSWORD && process.env.NODE_ENV === 'production') {
+      console.warn('[seed] OWNER_PASSWORD not set in production; falling back to the default owner password for this deployment. Set OWNER_PASSWORD to override it explicitly.');
     }
     {
-      const ownerHash = await bcrypt.hash(ownerPassword || 'dev-owner-temp-' + Math.random().toString(36).slice(2, 12), 10);
+      const ownerHash = await bcrypt.hash(ownerPassword, 10);
       const { rows: existingOwner } = await client.query(
         `SELECT id FROM users
          WHERE LOWER(email) = LOWER($1)

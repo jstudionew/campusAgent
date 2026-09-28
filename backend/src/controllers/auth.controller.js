@@ -9,9 +9,8 @@ import { sanitizeUserResponse } from '../utils/privacy.js';
 import { appendAuditLog } from '../utils/audit.js';
 import {
   DEFAULT_ALLOWED_MODULES,
-  DEFAULT_OWNER_EMAIL,
   DEFAULT_OWNER_NAME,
-  OWNER_USERNAME,
+  resolveOwnerConfig,
 } from '../config/brand.js';
 
 export const resolveLicensingState = ({ configuredValue, allowedModulesValue, fallbackModules = DEFAULT_ALLOWED_MODULES } = {}) => {
@@ -35,8 +34,12 @@ export const resolveLicensingState = ({ configuredValue, allowedModulesValue, fa
 export const login = async (req, res, next) => {
   try {
     const { email, username, password } = req.body;
-    const ownerEmail = process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
-    const ownerUsername = process.env.OWNER_USERNAME || OWNER_USERNAME;
+    const {
+      email: ownerEmail,
+      username: ownerUsername,
+      name: ownerName,
+      password: ownerPassword,
+    } = resolveOwnerConfig();
     const loginIdent = String(email || username || '').toLowerCase().trim();
     const isOwnerIdent =
       loginIdent === String(ownerEmail).toLowerCase().trim() ||
@@ -63,8 +66,7 @@ export const login = async (req, res, next) => {
 
     // Owner-first: require correct password; owner key is step-2
     if (isOwnerIdent) {
-      // Ensure owner exists; if the owner password is unset in local/dev mode the bootstrap
-      // process will create a temporary password that is not shared in source code.
+      // Bootstrap a missing owner with the same configured credentials used at startup.
       let ownerUser = await authService.findUserByEmail(ownerEmail);
       if (!ownerUser) ownerUser = await authService.findUserByUsername(ownerUsername);
       if (!ownerUser && process.env.NODE_ENV === 'production') {
@@ -76,12 +78,11 @@ export const login = async (req, res, next) => {
         });
       }
       if (!ownerUser) {
-        const tempPassword = process.env.OWNER_PASSWORD || 'dev-owner-temp-' + Math.random().toString(36).slice(2, 12);
         await authService.ensureOwnerUser({
           email: ownerEmail,
           username: ownerUsername,
-          password: tempPassword,
-          name: DEFAULT_OWNER_NAME,
+          password: ownerPassword,
+          name: ownerName,
         });
         ownerUser = await authService.findUserByEmail(ownerEmail) || await authService.findUserByUsername(ownerUsername);
       }
@@ -109,7 +110,7 @@ export const login = async (req, res, next) => {
         email: ownerUser.email || ownerEmail,
         username: ownerUser.username || ownerUsername,
         role: 'owner',
-        name: ownerUser.name || DEFAULT_OWNER_NAME,
+        name: ownerUser.name || ownerName,
         campusId: ownerUser.campus_id
       };
       const token = signAccessToken(userPayload);

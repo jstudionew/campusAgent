@@ -8,7 +8,7 @@ import url from 'url';
 import { pool, ensureAppDatabaseExists } from './config/db.js';
 import { ensureAuthSchema, ensureCampusSchema, ensureCardManagementSchema, ensureCertificatesSchema, ensureClassSectionsSchema, ensureExamResultsSchema, ensureMasterDataSchema, ensurePayrollSchema, ensureSharedContentSchema, ensureTeachersNameColumn, ensureCoreTableColumns, ensureRBACSchema } from './db/autoMigrate.js';
 import { initDb } from './models/index.js';
-import { DEFAULT_OWNER_EMAIL, DEFAULT_OWNER_NAME, OWNER_USERNAME } from './config/brand.js';
+import { resolveOwnerConfig } from './config/brand.js';
 
 loadEnv();
 
@@ -191,21 +191,18 @@ async function boot() {
 
     await withTimeout('Ensure owner user', async () => {
       await ensureAuthSchema();
-      const ownerEmail = process.env.OWNER_EMAIL || DEFAULT_OWNER_EMAIL;
-      const ownerName = process.env.OWNER_NAME || DEFAULT_OWNER_NAME;
-      const ownerUsername = process.env.OWNER_USERNAME || OWNER_USERNAME;
-      const ownerPassword = process.env.OWNER_PASSWORD;
+      const { email: ownerEmail, username: ownerUsername, name: ownerName, password: ownerPassword } = resolveOwnerConfig();
 
-      if (!ownerPassword && process.env.NODE_ENV === 'production') {
-        throw new Error('Missing required production env: OWNER_PASSWORD');
+      if (!process.env.OWNER_PASSWORD && process.env.NODE_ENV === 'production') {
+        console.warn('[bootstrap] OWNER_PASSWORD not set in production; falling back to the default owner password for this deployment. Set OWNER_PASSWORD to override it explicitly.');
       }
 
-      if (!ownerPassword) {
-        console.warn('[bootstrap] OWNER_PASSWORD was not set. A development-only temporary owner password will be generated and stored securely. Set OWNER_PASSWORD to avoid an unpredictable bootstrap password.');
-      }
-
-      const passwordToUse = ownerPassword || 'dev-owner-temp-' + Math.random().toString(36).slice(2, 12);
-      await authService.ensureOwnerUser({ email: ownerEmail, username: ownerUsername, password: passwordToUse, name: ownerName });
+      await authService.ensureOwnerUser({
+        email: ownerEmail,
+        username: ownerUsername,
+        password: ownerPassword,
+        name: ownerName,
+      });
     }, Number(process.env.SMS_DB_INIT_TIMEOUT_MS) || 45000);
   } catch (e) {
     console.error('[bootstrap] fatal startup error:', e?.stack || e);
