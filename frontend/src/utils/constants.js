@@ -160,9 +160,11 @@ export const TIME_SLOTS = [
 // Days of the Week
 export const WEEKDAYS = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday'];
 
+import { config } from '../config/env';
+
 // API Endpoints (for future backend integration)
 export const API_ENDPOINTS = {
-  BASE_URL: import.meta.env?.VITE_API_URL || 'http://localhost:5001/api',
+  BASE_URL: config.API_BASE_URL,
   AUTH: {
     LOGIN: '/auth/login',
     LOGOUT: '/auth/logout',

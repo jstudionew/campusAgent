@@ -534,6 +534,9 @@ export async function ensureAuthSchema() {
         ALTER TABLE users ADD CONSTRAINT users_username_key UNIQUE (username);
       END IF;
     END $$;
+    CREATE UNIQUE INDEX IF NOT EXISTS users_phone_digits_unique
+      ON users ((RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 10)))
+      WHERE phone IS NOT NULL AND btrim(phone) <> '';
     ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 
     -- Students: link to users

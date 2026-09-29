@@ -61,7 +61,7 @@ export const resolveLicensingState = ({ configuredValue, allowedModulesValue, fa
 
 export const login = async (req, res, next) => {
   try {
-    const { email, username, password } = req.body;
+    const { email, username, phone, password } = req.body;
     const {
       email: ownerEmail,
       username: ownerUsername,
@@ -154,22 +154,8 @@ export const login = async (req, res, next) => {
     // Normal deployment: no first-run license gating
     // Strict auth: do not auto-provision users during login (including parent phone logins)
     // Accept either email or WhatsApp number in the "email" field for parents
-    let user = null;
-    if (email) {
-      user = await authService.findUserByEmail(email);
-    }
-    if (!user && username) {
-      user = await authService.findUserByUsername(username);
-    }
-    // If still not found and an email-like field was actually a username, try it
-    if (!user && email) {
-      const s = String(email).trim();
-      const looksLikeEmail = /.+@.+\..+/.test(s);
-      const looksLikePhone = /^\+?\d{10,15}$/.test(s) || /^0\d{10}$/.test(s) || /^3\d{9}$/.test(s);
-      if (!looksLikeEmail && !looksLikePhone) {
-        user = await authService.findUserByUsername(s);
-      }
-    }
+    const identifier = email || username || phone;
+    const user = await authService.findUserByIdentifier(identifier);
     if (!user) {
       return res.status(401).json({
         success: false,
@@ -266,7 +252,7 @@ export const getAllUsers = async (req, res, next) => {
 
     if (search) {
       params.push(`%${search.toLowerCase()}%`);
-      where.push(`(LOWER(name) LIKE $${params.length} OR LOWER(email) LIKE $${params.length} OR LOWER(username) LIKE $${params.length})`);
+      where.push(`(LOWER(name) LIKE $${params.length} OR LOWER(email) LIKE $${params.length} OR LOWER(username) LIKE $${params.length} OR phone LIKE $${params.length})`);
     }
 
     const whereSql = where.length ? `WHERE ${where.join(' AND ')}` : '';
@@ -280,7 +266,7 @@ export const getAllUsers = async (req, res, next) => {
 
     // Get users with job_title and department
     const { rows } = await query(
-      `SELECT id, username, email, role, name, campus_id AS "campusId", job_title AS "jobTitle", department, created_at AS "createdAt"
+      `SELECT id, username, email, phone, role, name, campus_id AS "campusId", job_title AS "jobTitle", department, created_at AS "createdAt"
        FROM users ${whereSql}
        ORDER BY created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -297,7 +283,7 @@ export const getAllUsers = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, email, role, password, jobTitle, department } = req.body;
+    const { name, username, email, phone, role, password, jobTitle, department } = req.body;
     const requesterRole = req.user?.role;
 
     const targetUser = await authService.findUserById(id);
@@ -339,7 +325,19 @@ export const updateUser = async (req, res, next) => {
       return res.status(400).json({ message: 'Cannot change your own role' });
     }
 
-    const updates = { name, email, role, jobTitle, department };
+    for (const [field, lookup] of [
+      ['username', authService.findUserByUsername],
+      ['email', authService.findUserByEmail],
+      ['phone', authService.findUserByPhone],
+    ]) {
+      if (!req.body[field]) continue;
+      const existing = await lookup(req.body[field]);
+      if (existing && Number(existing.id) !== Number(id)) {
+        return res.status(409).json({ message: `${field} is already in use` });
+      }
+    }
+
+    const updates = { name, username, email, phone, role, jobTitle, department };
     if (password && password.length >= 6) {
       updates.passwordHash = await bcrypt.hash(password, 10);
     }
@@ -407,7 +405,7 @@ export const register = async (req, res, next) => {
     // Ensure campus schema changes are applied
     try { await ensureCampusSchema(); } catch (_) { }
 
-    const { email, password, name, role = 'student', campusId, jobTitle, department } = req.body;
+    const { email, username, phone, password, name, role = 'student', campusId, jobTitle, department } = req.body;
     const requesterRole = req.user?.role;
 
     // Determine campus:
@@ -452,12 +450,20 @@ export const register = async (req, res, next) => {
       });
     }
 
-    const existing = await authService.findUserByEmail(email);
-    if (existing) return res.status(409).json({ message: 'Email already in use' });
+    if (!email && !username && !phone) {
+      return res.status(400).json({ message: 'Email, username, or phone number is required' });
+    }
+    const identifiers = [email, username, phone].filter(Boolean);
+    for (const identifier of identifiers) {
+      const existing = await authService.findUserByIdentifier(identifier);
+      if (existing) return res.status(409).json({ message: 'Email, username, or phone number is already in use' });
+    }
 
     const passwordHash = await bcrypt.hash(password, 10);
     const user = await authService.createUser({
       email,
+      username,
+      phone,
       passwordHash,
       role,
       name,
@@ -503,11 +509,14 @@ export const register = async (req, res, next) => {
     const userPayload = {
       id: user.id,
       email: user.email,
+      username: user.username,
+      phone: user.phone,
       role: user.role,
       name: user.name,
       campusId: user.campus_id,
       jobTitle: user.job_title,
-      department: user.department
+      department: user.department,
+      phone: user.phone
     };
 
     return res.status(201).json({ user: userPayload });
@@ -664,6 +673,12 @@ export const updateMyProfile = async (req, res, next) => {
         return res.status(409).json({ message: 'Email is already in use' });
       }
     }
+    if (updates.phone) {
+      const existing = await authService.findUserByPhone(updates.phone);
+      if (existing && Number(existing.id) !== Number(req.user.id)) {
+        return res.status(409).json({ message: 'Phone number is already in use' });
+      }
+    }
 
     if (typeof updates.avatar === 'string' && updates.avatar.startsWith('data:')) {
       const imageMatch = updates.avatar.match(/^data:image\/(png|jpe?g|webp);base64,([A-Za-z0-9+/]+={0,2})$/i);
@@ -775,7 +790,8 @@ export const getUserById = async (req, res, next) => {
       name: user.name,
       campusId: user.campus_id,
       jobTitle: user.job_title,
-      department: user.department
+      department: user.department,
+      phone: user.phone
     };
     return res.json({ user: userPayload });
   } catch (e) {

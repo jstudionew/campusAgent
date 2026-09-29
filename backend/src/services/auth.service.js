@@ -30,6 +30,43 @@ export const findUserByUsername = async (username) => {
   return rows[0] || null;
 };
 
+export const findUserByPhone = async (phone) => {
+  const { rows } = await query(
+    `SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar
+     FROM users
+       WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') <> ''
+        AND regexp_replace($1, '[^0-9]', '', 'g') <> ''
+        AND regexp_replace($1, '[^0-9+(). -]', '', 'g') = $1
+         AND (regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+           OR RIGHT(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 10) = RIGHT(regexp_replace($1, '[^0-9]', '', 'g'), 10))
+     LIMIT 1`,
+    [phone]
+  );
+  return rows[0] || null;
+};
+
+export const findUserByIdentifier = async (identifier) => {
+  const value = String(identifier || '').trim();
+  if (!value) return null;
+
+  const { rows } = await query(
+    `SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar
+     FROM users
+     WHERE LOWER(TRIM(COALESCE(email, ''))) = LOWER(TRIM($1))
+        OR LOWER(TRIM(COALESCE(username, ''))) = LOWER(TRIM($1))
+        OR (
+          regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') <> ''
+          AND regexp_replace($1, '[^0-9]', '', 'g') <> ''
+          AND regexp_replace($1, '[^0-9+(). -]', '', 'g') = $1
+          AND (regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') = regexp_replace($1, '[^0-9]', '', 'g')
+            OR RIGHT(regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g'), 10) = RIGHT(regexp_replace($1, '[^0-9]', '', 'g'), 10))
+        )
+     LIMIT 1`,
+    [value]
+  );
+  return rows[0] || null;
+};
+
 export const findUserById = async (id) => {
   const { rows } = await query('SELECT id, email, username, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE id = $1', [id]);
   return rows[0] || null;
@@ -165,26 +202,35 @@ export const updateOwnProfile = async (id, updates, { expectedRole } = {}) => {
 };
 
 // Create new user (admin only)
-export const createUser = async ({ email, passwordHash, role = 'student', name, campusId, jobTitle = null, department = null }) => {
+export const createUser = async ({ email = null, username = null, phone = null, passwordHash, role = 'student', name, campusId, jobTitle = null, department = null }) => {
   // Validate role is in allowed list
   if (!ALLOWED_USER_ROLES.includes(role)) {
     throw new Error(`Invalid role: ${role}. Allowed roles are: ${ALLOWED_USER_ROLES.join(', ')}`);
   }
+  const columns = ['password_hash', 'role', 'name', 'campus_id', 'job_title', 'department'];
+  const values = [passwordHash, role, name || email || username || phone, campusId, jobTitle, department];
+  if (email) { columns.unshift('email'); values.unshift(email); }
+  if (username) { columns.unshift('username'); values.unshift(username); }
+  if (phone) { columns.unshift('phone'); values.unshift(phone); }
+  const placeholders = columns.map((_, index) => `$${index + 1}`).join(',');
   const { rows } = await query(
-    'INSERT INTO users (email, password_hash, role, name, campus_id, job_title, department) VALUES ($1,$2,$3,$4,$5,$6,$7) RETURNING id, email, role, name, campus_id, job_title, department',
-    [email, passwordHash, role, name || email, campusId, jobTitle, department]
+    `INSERT INTO users (${columns.join(', ')}) VALUES (${placeholders})
+     RETURNING id, username, email, phone, role, name, campus_id, job_title, department`,
+    values
   );
   return rows[0];
 };
 
 export const updateUser = async (id, updates) => {
-  const { name, email, role, passwordHash, jobTitle, department, active } = updates;
+  const { name, username, email, phone, role, passwordHash, jobTitle, department, active } = updates;
   const fields = [];
   const values = [];
   let idx = 1;
 
   if (name !== undefined) { fields.push(`name = $${idx++}`); values.push(name); }
+  if (username !== undefined) { fields.push(`username = $${idx++}`); values.push(username); }
   if (email !== undefined) { fields.push(`email = $${idx++}`); values.push(email); }
+  if (phone !== undefined) { fields.push(`phone = $${idx++}`); values.push(phone); }
   if (role !== undefined) {
     if (!ALLOWED_USER_ROLES.includes(role)) throw new Error(`Invalid role`);
     fields.push(`role = $${idx++}`); values.push(role);
@@ -197,7 +243,7 @@ export const updateUser = async (id, updates) => {
 
   values.push(id);
   const { rows } = await query(
-    `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, email, role, name, campus_id, job_title, department`,
+    `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, username, email, phone, role, name, campus_id, job_title, department`,
     values
   );
   return rows[0];
@@ -395,11 +441,11 @@ export const findParentByPhone = async (phone) => {
 
 export const ensureParentUserForPhone = async ({ phone, password, name, campusId = null }) => {
   const emailLike = normalizePkPhone(phone);
-  const existing = await findUserByEmail(emailLike);
+  const existing = await findUserByPhone(emailLike) || await findUserByEmail(emailLike);
   if (existing) return existing;
   const passwordHash = await bcrypt.hash(password, 10);
   const { rows } = await query(
-    'INSERT INTO users (email, password_hash, role, name, campus_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, role, name, campus_id, password_hash',
+    'INSERT INTO users (phone, password_hash, role, name, campus_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, username, phone, role, name, campus_id, password_hash',
     [emailLike, passwordHash, 'parent', name || emailLike, campusId]
   );
   return rows[0] || null;
@@ -408,17 +454,17 @@ export const ensureParentUserForPhone = async ({ phone, password, name, campusId
 // Create or update a parent user for a given phone, always setting the provided password
 export const upsertParentUserForPhone = async ({ phone, password, name, campusId = null }) => {
   const emailLike = normalizePkPhone(phone);
-  const existing = await findUserByEmail(emailLike);
+  const existing = await findUserByPhone(emailLike) || await findUserByEmail(emailLike);
   const passwordHash = await bcrypt.hash(password, 10);
   if (existing) {
     const { rows } = await query(
-      'UPDATE users SET password_hash = $2, role = $3, name = COALESCE($4, name), campus_id = COALESCE($5, campus_id) WHERE id = $1 RETURNING id, email, role, name, campus_id',
-      [existing.id, passwordHash, 'parent', name || null, campusId]
+      'UPDATE users SET phone = $2, password_hash = $3, role = $4, name = COALESCE($5, name), campus_id = COALESCE($6, campus_id) WHERE id = $1 RETURNING id, email, username, phone, role, name, campus_id',
+      [existing.id, emailLike, passwordHash, 'parent', name || null, campusId]
     );
-    return rows[0] || { ...existing, email: emailLike, role: 'parent', name: name || existing.name, campus_id: campusId || existing.campus_id };
+    return rows[0] || { ...existing, phone: emailLike, role: 'parent', name: name || existing.name, campus_id: campusId || existing.campus_id };
   }
   const { rows } = await query(
-    'INSERT INTO users (email, password_hash, role, name, campus_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, role, name, campus_id, password_hash',
+    'INSERT INTO users (phone, password_hash, role, name, campus_id) VALUES ($1,$2,$3,$4,$5) RETURNING id, email, username, phone, role, name, campus_id, password_hash',
     [emailLike, passwordHash, 'parent', name || emailLike, campusId]
   );
   return rows[0] || null;

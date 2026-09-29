@@ -41,6 +41,11 @@ BEGIN
   END IF;
 END $$;
 
+-- Phone/WhatsApp-based login identifiers must be unique even when formatted differently.
+CREATE UNIQUE INDEX IF NOT EXISTS users_phone_digits_unique
+  ON users ((RIGHT(regexp_replace(phone, '[^0-9]', '', 'g'), 10)))
+  WHERE phone IS NOT NULL AND btrim(phone) <> '';
+
 -- Allow NULL email (students/drivers may not have emails)
 ALTER TABLE users ALTER COLUMN email DROP NOT NULL;
 

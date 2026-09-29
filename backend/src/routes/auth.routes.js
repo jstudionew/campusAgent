@@ -13,11 +13,11 @@ router.post(
     body().custom((_, { req }) => {
       const uname = String(req.body?.username || '').trim();
       if (uname && uname.length >= 3) return true;
-      const v = String(req.body?.email || '').trim();
+      const v = String(req.body?.email || req.body?.phone || '').trim();
       const emailRegex = /.+@.+\..+/;
-      const phoneRegex = /^\+?\d{10,15}$|^0\d{10}$|^3\d{9}$/;
-      if (emailRegex.test(v) || phoneRegex.test(v)) return true;
-      throw new Error('Provide username or a valid email/phone number');
+      const phoneDigits = v.replace(/\D/g, '');
+      if (emailRegex.test(v) || (phoneDigits.length >= 10 && phoneDigits.length <= 15)) return true;
+      throw new Error('Provide a username, email, or phone number');
     }),
     body('password').isString().isLength({ min: 6 })
   ],
@@ -33,7 +33,17 @@ router.post(
   authenticate,
   authorize('admin', 'owner', 'superadmin'),
   [
-    body('email').isEmail(),
+    body().custom((_, { req }) => {
+      const email = String(req.body?.email || '').trim();
+      const username = String(req.body?.username || '').trim();
+      const phone = String(req.body?.phone || '').trim();
+      if (!email && !username && !phone) throw new Error('Provide an email, username, or phone number');
+      if (email && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw new Error('Enter a valid email address');
+      if (username && !/^[a-zA-Z0-9._-]{3,40}$/.test(username)) throw new Error('Username must be 3-40 characters using letters, numbers, dots, underscores, or hyphens');
+      const phoneDigits = phone.replace(/\D/g, '');
+      if (phone && (phone.length > 32 || phoneDigits.length < 10 || phoneDigits.length > 15)) throw new Error('Enter a valid phone number');
+      return true;
+    }),
     body('password').isString().isLength({ min: 6 }),
     body('name').optional().isString(),
     body('role').optional().custom((value, { req }) => {

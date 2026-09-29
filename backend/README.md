@@ -40,10 +40,10 @@ npm run dev
 
 The API will listen on http://localhost:5000 by default.
 
-Frontend .env (Vite):
+Frontend local `.env.local` (Vite):
 
 ```
-VITE_API_URL=http://localhost:5000
+VITE_API_BASE_URL=http://localhost:10000
 VITE_TOKEN_STORAGE=local
 VITE_REQUEST_TIMEOUT_MS=15000
 VITE_ENABLE_DEMO_AUTH=false

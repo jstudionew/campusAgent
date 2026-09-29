@@ -146,7 +146,7 @@ function SignIn() {
                 color={textColor}
                 mb='1.5'
               >
-                Email, Username, or WhatsApp Phone
+                Email, Username, or Phone / WhatsApp Number
               </FormLabel>
               <InputGroup size='md'>
                 <InputLeftElement pointerEvents='none' h='48px'>
@@ -155,7 +155,7 @@ function SignIn() {
                 <Input
                   id='login-email'
                   type='text'
-                  placeholder='e.g. admin@campus.edu or username'
+                  placeholder='Email, username, or phone number'
                   h='48px'
                   fontSize='sm'
                   borderRadius='12px'

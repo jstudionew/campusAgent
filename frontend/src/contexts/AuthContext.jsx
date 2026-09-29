@@ -232,7 +232,7 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     setError(null);
     try {
-      if (!email || !password) throw new Error('Email and password are required');
+      if (!email || !password) throw new Error('Email, username, or phone number and password are required');
 
       let token;
       let refreshToken;
@@ -253,9 +253,15 @@ export const AuthProvider = ({ children }) => {
         // Real backend login; detect if identifier is username vs email/phone
         const id = String(email).trim();
         const emailRegex = /.+@.+\..+/;
-        const phoneRegex = /^\+?\d{10,15}$|^0\d{10}$|^3\d{9}$/;
-        const looksEmailOrPhone = emailRegex.test(id) || phoneRegex.test(id);
-        const res = await authApi.login({ email: looksEmailOrPhone ? id : undefined, username: looksEmailOrPhone ? undefined : id, password });
+        const looksEmail = emailRegex.test(id);
+        const phoneDigits = id.replace(/\D/g, '');
+        const looksPhone = !looksEmail && phoneDigits.length >= 10 && phoneDigits.length <= 15;
+        const res = await authApi.login({
+          email: looksEmail ? id : undefined,
+          username: !looksEmail && !looksPhone ? id : undefined,
+          phone: looksPhone ? id : undefined,
+          password,
+        });
         token = res?.token || res?.accessToken;
         refreshToken = res?.refreshToken;
         userData = res?.user || null;

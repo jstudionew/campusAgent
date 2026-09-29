@@ -1,4 +1,4 @@
-import { config } from '../config/env';
+import { config, getApiBaseUrl } from '../config/env';
 import { STORAGE_KEYS } from '../utils/constants';
 
 let authToken = null;
@@ -23,25 +23,7 @@ const withTimeout = (promise, ms) => {
   };
 };
 
-// If running under Electron, prefer runtime API base injected by preload
-// Fallback to VITE_API_URL and then to localhost dev API
-const electronBase = (typeof window !== 'undefined' && window.ELECTRON_CONFIG && window.ELECTRON_CONFIG.API_BASE_URL) ||
-  (typeof window !== 'undefined' && window.__API_BASE_URL);
-
-const normalizeApiBase = (raw) => {
-  const s = String(raw || '').replace(/\/$/, '');
-  if (!s) return '';
-  if (s.endsWith('/api')) return s;
-  // If user provided host only (e.g. http://localhost:59201), ensure /api is included.
-  return s + '/api';
-};
-
-// In Vite dev, always use relative '/api' so the proxy routes to the correct backend.
-// This prevents accidental 404s when VITE_API_URL is set to an old/stale backend.
-const baseURL = (
-  electronBase ||
-  (import.meta?.env?.DEV ? '/api' : (normalizeApiBase(config.API_BASE_URL) || '/api'))
-).replace(/\/$/, '');
+const baseURL = getApiBaseUrl();
 
 const getStoredRefreshToken = () => {
   try {

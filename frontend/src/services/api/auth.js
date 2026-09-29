@@ -1,14 +1,15 @@
 import { http } from '../http';
 
-export const login = async ({ email, username, password }) => {
+export const login = async ({ email, username, phone, password }) => {
   const payload = { password };
   if (username) payload.username = username;
+  else if (phone) payload.phone = phone;
   else payload.email = email;
   return http.post('/auth/login', payload);
 };
 
-export const register = async ({ email, password, name, role, campusId, jobTitle, department }) => {
-  return http.post('/auth/register', { email, password, name, role, campusId, jobTitle, department });
+export const register = async ({ email, username, phone, password, name, role, campusId, jobTitle, department }) => {
+  return http.post('/auth/register', { email, username, phone, password, name, role, campusId, jobTitle, department });
 };
 
 export const getVisibilitySettings = async () => {

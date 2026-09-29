@@ -1,16 +1,8 @@
 import axios from 'axios';
 import { STORAGE_KEYS } from '../utils/constants';
-import { config } from '../config/env';
+import { getApiBaseUrl } from '../config/env';
 
-let API_URL = (() => {
-    const electronBase =
-        (typeof window !== 'undefined' && window.ELECTRON_CONFIG && window.ELECTRON_CONFIG.API_BASE_URL) ||
-        (typeof window !== 'undefined' && window.__API_BASE_URL);
-    let base = String(electronBase || config.API_BASE_URL || import.meta.env.VITE_API_URL || '/api');
-    base = base.replace(/\/$/, '');
-    if (base !== '/api' && !/\/api$/.test(base)) base = base + '/api';
-    return base;
-})();
+const API_URL = getApiBaseUrl();
 
 // Create axios instance with default config
 const apiClient = axios.create({

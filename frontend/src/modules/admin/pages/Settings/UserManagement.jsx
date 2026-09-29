@@ -60,7 +60,9 @@ export default function UserManagement() {
   // Form state for creating new user
   const [formData, setFormData] = useState({
     name: '',
+    username: '',
     email: '',
+    phone: '',
     password: '',
     role: 'student',
     jobTitle: '',
@@ -76,7 +78,9 @@ export default function UserManagement() {
   const [editData, setEditData] = useState({
     id: null,
     name: '',
+    username: '',
     email: '',
+    phone: '',
     role: 'student',
     jobTitle: '',
     department: '',
@@ -150,6 +154,7 @@ export default function UserManagement() {
       ...prev,
       name: entity.name || prev.name,
       email: entity.email || prev.email,
+      phone: entity.phone || entity.whatsappPhone || entity.whatsapp_phone || prev.phone,
     }));
     setLookupQuery('');
     setLookupResults([]);
@@ -194,7 +199,9 @@ export default function UserManagement() {
     setEditData({
       id: user.id,
       name: user.name || '',
+      username: user.username || '',
       email: user.email || '',
+      phone: user.phone || '',
       role: user.role,
       jobTitle: user.jobTitle || '',
       department: user.department || '',
@@ -228,7 +235,9 @@ export default function UserManagement() {
       setIsUpdating(true);
       const payload = {
         name: editData.name,
+        username: editData.username || undefined,
         email: editData.email,
+        phone: editData.phone || undefined,
         role: editData.role,
         jobTitle: editData.jobTitle || undefined,
         department: editData.department || undefined,
@@ -309,7 +318,8 @@ export default function UserManagement() {
                 <Tr>
                   <Th>Name</Th>
                   <Th>Username</Th>
-                  <Th>Email</Th>
+                    <Th>Email</Th>
+                    <Th>Phone / WhatsApp</Th>
                   <Th>Role</Th>
                   <Th>Job Title</Th>
                   <Th>Created</Th>
@@ -322,6 +332,7 @@ export default function UserManagement() {
                     <Td><Text fontWeight='600'>{u.name || 'N/A'}</Text></Td>
                     <Td><Text fontFamily='mono'>{u.username || 'N/A'}</Text></Td>
                     <Td>{u.email || 'N/A'}</Td>
+                    <Td>{u.phone || 'N/A'}</Td>
                     <Td><Badge colorScheme='blue'>{roleDisplayMap[u.role] || u.role}</Badge></Td>
                     <Td><Text fontSize='sm'>{u.jobTitle || '—'}</Text></Td>
                     <Td><Text color={textColorSecondary}>{new Date(u.createdAt).toLocaleDateString()}</Text></Td>
@@ -342,7 +353,7 @@ export default function UserManagement() {
       {/* Add User Modal */}
       <Modal isOpen={createDisc.isOpen} onClose={() => {
         createDisc.onClose();
-        setFormData({ name: '', email: '', password: '', role: 'student', jobTitle: '', department: '', selectedCampusId: '', active: true });
+        setFormData({ name: '', username: '', email: '', phone: '', password: '', role: 'student', jobTitle: '', department: '', selectedCampusId: '', active: true });
       }} size='lg'>
         <ModalOverlay />
         <ModalContent>
@@ -397,13 +408,31 @@ export default function UserManagement() {
                 onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               />
             </FormControl>
-            <FormControl mb={4} isRequired>
+            <FormControl mb={4}>
+              <FormLabel>Username</FormLabel>
+              <Input
+                placeholder='e.g. adeel.khan'
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value })}
+              />
+              <FormHelperText>Use at least 3 letters, numbers, dots, underscores, or hyphens.</FormHelperText>
+            </FormControl>
+            <FormControl mb={4}>
               <FormLabel>Email</FormLabel>
               <Input
                 placeholder='email@school.com'
                 type='email'
                 value={formData.email}
                 onChange={(e) => setFormData({ ...formData, email: e.target.value })}
+              />
+            </FormControl>
+            <FormControl mb={4}>
+              <FormLabel>Phone / WhatsApp Number</FormLabel>
+              <Input
+                placeholder='e.g. +92 300 1234567'
+                type='tel'
+                value={formData.phone}
+                onChange={(e) => setFormData({ ...formData, phone: e.target.value })}
               />
             </FormControl>
             <FormControl mb={4} isRequired>
@@ -465,13 +494,13 @@ export default function UserManagement() {
           <ModalFooter>
             <Button mr={3} onClick={() => {
               createDisc.onClose();
-              setFormData({ name: '', email: '', password: '', role: 'student', jobTitle: '', department: '', selectedCampusId: '', active: true });
+              setFormData({ name: '', username: '', email: '', phone: '', password: '', role: 'student', jobTitle: '', department: '', selectedCampusId: '', active: true });
             }}>Cancel</Button>
             <Button colorScheme='blue' isLoading={isCreating} onClick={async () => {
-              if (!formData.name || !formData.email || !formData.password) {
+              if (!formData.name || !formData.password || (!formData.username && !formData.email && !formData.phone)) {
                 toast({
                   title: 'Validation Error',
-                  description: 'Please fill in all required fields',
+                  description: 'Enter at least one login identifier: username, email, or phone / WhatsApp number.',
                   status: 'error',
                   duration: 3000,
                   isClosable: true,
@@ -509,7 +538,9 @@ export default function UserManagement() {
                   : undefined;
                 await authApi.register({
                   name: formData.name,
-                  email: formData.email,
+                  username: formData.username || undefined,
+                  email: formData.email || undefined,
+                  phone: formData.phone || undefined,
                   password: formData.password,
                   role: formData.role,
                   campusId: campusIdToSend,
@@ -526,7 +557,7 @@ export default function UserManagement() {
                 });
 
                 createDisc.onClose();
-                setFormData({ name: '', email: '', password: '', role: 'student', jobTitle: '', department: '', selectedCampusId: '', active: true });
+                setFormData({ name: '', username: '', email: '', phone: '', password: '', role: 'student', jobTitle: '', department: '', selectedCampusId: '', active: true });
 
                 // Refresh the page to show new user
                 setTimeout(() => window.location.reload(), 1000);
@@ -565,8 +596,16 @@ export default function UserManagement() {
               <Input value={editData.name} onChange={(e) => setEditData({ ...editData, name: e.target.value })} />
             </FormControl>
             <FormControl mb={4}>
+              <FormLabel>Username</FormLabel>
+              <Input value={editData.username} onChange={(e) => setEditData({ ...editData, username: e.target.value })} />
+            </FormControl>
+            <FormControl mb={4}>
               <FormLabel>Email</FormLabel>
               <Input value={editData.email} onChange={(e) => setEditData({ ...editData, email: e.target.value })} />
+            </FormControl>
+            <FormControl mb={4}>
+              <FormLabel>Phone / WhatsApp Number</FormLabel>
+              <Input type='tel' value={editData.phone} onChange={(e) => setEditData({ ...editData, phone: e.target.value })} />
             </FormControl>
             <FormControl mb={4}>
               <FormLabel>Role</FormLabel>
