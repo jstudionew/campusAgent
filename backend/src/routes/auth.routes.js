@@ -3,14 +3,14 @@ import { body } from 'express-validator';
 import * as authController from '../controllers/auth.controller.js';
 import { authenticate, authorize, requireOwnerAccess } from '../middleware/auth.js';
 import { validate } from '../middleware/validate.js';
-import { ALLOWED_USER_ROLES } from '../services/auth.service.js';
+import { isAllowedUserRole } from '../services/auth.service.js';
 
 const router = Router();
 
 router.post(
   '/login',
   [
-    body().custom((_, { req }) => {
+    body().custom(async (_, { req }) => {
       const uname = String(req.body?.username || '').trim();
       if (uname && uname.length >= 3) return true;
       const v = String(req.body?.email || req.body?.phone || '').trim();
@@ -46,13 +46,14 @@ router.post(
     }),
     body('password').isString().isLength({ min: 6 }),
     body('name').optional().isString(),
-    body('role').optional().custom((value, { req }) => {
+    body('role').optional().custom(async (value) => {
       const v = String(value || '').trim();
       if (!v) return true;
-      if (ALLOWED_USER_ROLES.includes(v)) return true;
+      if (await isAllowedUserRole(v)) return true;
       throw new Error('Invalid role');
     }),
     body('campusId').optional().isInt({ min: 1 }),
+    body('active').optional().isBoolean(),
   ],
   validate,
   authController.register
@@ -64,7 +65,24 @@ router.get('/profile', authenticate, authController.profile);
 router.put('/profile', authenticate, authController.updateMyProfile);
 router.get('/users', authenticate, authController.getAllUsers);
 router.get('/users/:id', authenticate, authController.getUserById);
-router.put('/users/:id', authenticate, authorize('admin', 'owner', 'superadmin'), validate, authController.updateUser);
+router.put(
+  '/users/:id',
+  authenticate,
+  authorize('admin', 'owner', 'superadmin'),
+  [
+    body('name').optional().isString(),
+    body('username').optional().isString(),
+    body('email').optional().isEmail(),
+    body('phone').optional().isString(),
+    body('role').optional().custom(isAllowedUserRole),
+    body('jobTitle').optional().isString(),
+    body('department').optional().isString(),
+    body('active').optional().isBoolean(),
+    body('campusId').optional({ nullable: true }).isInt({ min: 1 }),
+  ],
+  validate,
+  authController.updateUser
+);
 router.delete('/users/:id', authenticate, authorize('admin', 'owner', 'superadmin'), authController.deleteUser);
 
 // Owner Visibility Settings

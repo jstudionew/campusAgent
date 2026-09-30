@@ -129,7 +129,7 @@ export default function AdmissionEnquiry() {
                             ) : enquiries.length === 0 ? (
                                 <Tr><Td colSpan={8} textAlign="center">No enquiries found</Td></Tr>
                             ) : enquiries.filter(e => e.studentName?.toLowerCase().includes(search.toLowerCase()) || e.parentName?.toLowerCase().includes(search.toLowerCase())).map((enquiry) => (
-                                <Tr key={enquiry.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={enquiry.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td>{enquiry.date}</Td>
                                     <Td><Text fontWeight="600">{enquiry.studentName}</Text></Td>
                                     <Td>{enquiry.parentName}</Td>

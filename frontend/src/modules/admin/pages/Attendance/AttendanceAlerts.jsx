@@ -273,7 +273,7 @@ export default function AttendanceAlerts() {
             </Thead>
             <Tbody>
               {filtered.map((a) => (
-                <Tr key={a.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={a.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Checkbox isChecked={selected.includes(a.id)} onChange={() => toggleSelect(a.id)} /></Td>
                   <Td><Badge>{a.id}</Badge></Td>
                   <Td><Text fontWeight='500'>{a.type}</Text></Td>

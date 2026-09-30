@@ -106,7 +106,7 @@ export default function Store() {
                             ) : stores.length === 0 ? (
                                 <Tr><Td colSpan={5} textAlign="center">No stores found</Td></Tr>
                             ) : stores.filter(s => s.name?.toLowerCase().includes(search.toLowerCase())).map((store) => (
-                                <Tr key={store.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={store.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{store.name}</Text></Td>
                                     <Td>{store.location}</Td>
                                     <Td>{store.capacity}</Td>

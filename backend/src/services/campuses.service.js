@@ -19,7 +19,7 @@ export const list = async ({ page = 1, pageSize = 50, q }) => {
     const total = countRows[0]?.count || 0;
 
     const { rows } = await query(
-        `SELECT id, name, address, phone, email, capacity, status, created_at AS "createdAt"
+        `SELECT id, name, address, phone, email, capacity, status, logo_url AS "logoUrl", created_at AS "createdAt"
      FROM campuses
      ${whereSql}
      ORDER BY name ASC
@@ -31,22 +31,22 @@ export const list = async ({ page = 1, pageSize = 50, q }) => {
 };
 
 export const getById = async (id) => {
-    const { rows } = await query('SELECT id, name, address, phone, email, capacity, status, created_at AS "createdAt" FROM campuses WHERE id = $1', [id]);
+    const { rows } = await query('SELECT id, name, address, phone, email, capacity, status, logo_url AS "logoUrl", created_at AS "createdAt" FROM campuses WHERE id = $1', [id]);
     return rows[0] || null;
 };
 
-export const create = async ({ name, address, phone, email, capacity, status }) => {
+export const create = async ({ name, address, phone, email, capacity, status, logoUrl }) => {
     const { rows } = await query(
-        'INSERT INTO campuses (name, address, phone, email, capacity, status) VALUES ($1, $2, $3, $4, $5, $6) RETURNING id, name, address, phone, email, capacity, status, created_at AS "createdAt"',
-        [name, address || null, phone || null, email || null, capacity ?? null, status || 'active']
+        'INSERT INTO campuses (name, address, phone, email, capacity, status, logo_url) VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING id, name, address, phone, email, capacity, status, logo_url AS "logoUrl", created_at AS "createdAt"',
+        [name, address || null, phone || null, email || null, capacity ?? null, status || 'active', logoUrl || null]
     );
     return rows[0];
 };
 
-export const update = async (id, { name, address, phone, email, capacity, status }) => {
+export const update = async (id, { name, address, phone, email, capacity, status, logoUrl }) => {
     const { rows } = await query(
-        'UPDATE campuses SET name = $1, address = $2, phone = $3, email = $4, capacity = $5, status = $6 WHERE id = $7 RETURNING id, name, address, phone, email, capacity, status, created_at AS "createdAt"',
-        [name, address || null, phone || null, email || null, capacity ?? null, status || 'active', id]
+        'UPDATE campuses SET name = $1, address = $2, phone = $3, email = $4, capacity = $5, status = $6, logo_url = CASE WHEN $7::boolean THEN $8 ELSE logo_url END WHERE id = $9 RETURNING id, name, address, phone, email, capacity, status, logo_url AS "logoUrl", created_at AS "createdAt"',
+        [name, address || null, phone || null, email || null, capacity ?? null, status || 'active', logoUrl !== undefined, logoUrl ?? null, id]
     );
     return rows[0];
 };

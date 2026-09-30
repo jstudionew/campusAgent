@@ -11,6 +11,9 @@ function formatDateTime(d){ return d.toLocaleString(undefined, { day:'2-digit', 
 
 export default function Communication(){
   const textSecondary = useColorModeValue('gray.600','gray.400');
+  const conversationBorderColor = useColorModeValue('gray.100','whiteAlpha.200');
+  const activeConversationBg = useColorModeValue('gray.50','whiteAlpha.100');
+  const messagePaneBg = useColorModeValue('gray.50','whiteAlpha.100');
   const { user } = useAuth();
   const scrollerRef = useRef(null);
 
@@ -156,7 +159,7 @@ export default function Communication(){
         <Card p='0' gridColumn={{ base:'1', lg:'1' }}>
           <Box maxH={{ base:'260px', lg:'540px' }} overflowY='auto'>
             {filteredThreads.map(t => (
-              <HStack key={t.id} p='12px' spacing={3} borderBottom='1px solid' borderColor={useColorModeValue('gray.100','whiteAlpha.200')} cursor='pointer' bg={active?.id===t.id? useColorModeValue('gray.50','whiteAlpha.100'):'transparent'} onClick={()=>setActiveId(t.id)}>
+              <HStack key={t.id} p='12px' spacing={3} borderBottom='1px solid' borderColor={conversationBorderColor} cursor='pointer' bg={active?.id===t.id? activeConversationBg:'transparent'} onClick={()=>setActiveId(t.id)}>
                 <Avatar size='sm' name={t.teacher.name} src={t.teacher.avatar} />
                 <VStack align='start' spacing={0} flex='1'>
                   <Text fontWeight='600'>{t.teacher.name}</Text>
@@ -172,14 +175,14 @@ export default function Communication(){
         <Card p='0' gridColumn={{ base:'1', lg:'2 / span 2' }}>
           {active ? (
             <VStack align='stretch' spacing={0} h='full'>
-              <HStack p='12px' borderBottom='1px solid' borderColor={useColorModeValue('gray.100','whiteAlpha.200')}>
+              <HStack p='12px' borderBottom='1px solid' borderColor={conversationBorderColor}>
                 <Avatar size='sm' name={active.teacher.name} src={active.teacher.avatar} />
                 <VStack align='start' spacing={0}>
                   <Text fontWeight='600'>{active.teacher.name}</Text>
                   <Text fontSize='xs' color={textSecondary}>{active.subject}</Text>
                 </VStack>
               </HStack>
-              <Box ref={scrollerRef} p='12px' minH='260px' maxH={{ base:'320px', lg:'460px' }} overflowY='auto' bg={useColorModeValue('gray.50','whiteAlpha.100')}>
+              <Box ref={scrollerRef} p='12px' minH='260px' maxH={{ base:'320px', lg:'460px' }} overflowY='auto' bg={messagePaneBg}>
                 {active.messages.map(m => (
                   <VStack key={m.id} align={m.from==='student'?'end':'start'} mb='8px'>
                     <Box maxW='70%' px='12px' py='8px' borderRadius='md' bg={m.from==='student'? 'purple.500':'white'} color={m.from==='student'? 'white': undefined} boxShadow='sm'>

@@ -84,7 +84,7 @@ export default function Announcements() {
             </Thead>
             <Tbody>
               {rows.map((a) => (
-                <Tr key={a.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={a.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Text fontWeight='600'>{a.id}</Text></Td>
                   <Td>{a.title}</Td>
                   <Td>{a.audience}</Td>

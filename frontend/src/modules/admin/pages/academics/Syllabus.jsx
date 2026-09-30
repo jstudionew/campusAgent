@@ -49,6 +49,9 @@ import { MdTrendingUp, MdCheckCircle, MdWarning, MdUpdate, MdAssignment, MdSearc
 import * as syllabusApi from '../../../../services/api/syllabus';
 import * as teacherApi from '../../../../services/api/teachers';
 import useClassOptions from '../../../../hooks/useClassOptions';
+import { downloadCsv } from '../../../../utils/campusExports';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 
 export default function Syllabus() {
   const [rows, setRows] = useState([]);
@@ -140,6 +143,33 @@ export default function Syllabus() {
   const completed = data.filter(r => r.percent >= 70).length;
   const behind = data.filter(r => r.percent < 40).length;
 
+  const exportCSV = () => {
+    downloadCsv({
+      filename: 'syllabus_coverage.csv',
+      headers: ['Class', 'Section', 'Subject', 'Teacher', 'Chapters', 'Covered', 'Coverage (%)', 'Due Date', 'Status'],
+      rows: data.map((item) => [item.className, item.section, item.subject, item.teacherName, item.chapters, item.covered, item.percent, item.dueDate, item.status]),
+    });
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text('Syllabus Coverage Report', 40, 40);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 58);
+    autoTable(doc, {
+      startY: 72,
+      head: [['Class', 'Section', 'Subject', 'Teacher', 'Chapters', 'Covered', 'Coverage', 'Due Date', 'Status']],
+      body: data.map((item) => [item.className, item.section, item.subject, item.teacherName, item.chapters, item.covered, `${item.percent}%`, item.dueDate || '', item.status]),
+      styles: { fontSize: 8, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save('syllabus_coverage.pdf');
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       <Flex mb={5} justifyContent="space-between" alignItems="center">
@@ -150,8 +180,8 @@ export default function Syllabus() {
         <ButtonGroup>
           <Button colorScheme='blue' onClick={() => { setNewItem({ className: '', section: '', subject: '', chapters: 0, covered: 0, dueDate: '' }); addDisc.onOpen(); }}>Add Item</Button>
           <Button leftIcon={<MdRefresh />} variant='outline' onClick={fetchRows} isLoading={loading}>Refresh</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!data.length}>Export CSV</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' onClick={exportPDF} isDisabled={!data.length}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -197,7 +227,7 @@ export default function Syllabus() {
             flexWrap='wrap'
           >
             <Button leftIcon={<MdUpdate />} colorScheme="blue">Update Coverage</Button>
-            <Button leftIcon={<MdAssignment />} variant="outline" colorScheme="blue">Generate Report</Button>
+            <Button leftIcon={<MdAssignment />} variant="outline" colorScheme="blue" onClick={exportPDF} isDisabled={!data.length}>Generate Report</Button>
           </HStack>
         </Flex>
       </Card>

@@ -51,8 +51,10 @@ import {
   MdPersonAdd,
 } from 'react-icons/md';
 import useApi from '../../../../hooks/useApi';
-import { teachersApi, campusesApi } from '../../../../services/api';
+import { teachersApi, campusesApi, classesApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { syncTeacherClassSections } from '../../../../utils/teacherClassSections';
+import { toDateInputValue } from '../../../../utils/dateValues';
 import TeacherDetailsModal from './TeacherDetailsModal';
 import TeacherEditModal from './TeacherEditModal';
 
@@ -79,6 +81,11 @@ function TeacherList() {
   // Color mode values
   const textColor = useColorModeValue('gray.800', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const pageBg = useColorModeValue('gray.50', 'gray.900');
+  const tableHeaderBg = useColorModeValue('gray.50', 'gray.800');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
+  const dividerColor = useColorModeValue('gray.200', 'whiteAlpha.200');
+  const badgeVariant = useColorModeValue('subtle', 'solid');
   const {
     execute: fetchTeachers,
     data: teachersResponse,
@@ -207,14 +214,6 @@ function TeacherList() {
     return 'gray';
   };
 
-  const toDateInputValue = (value) => {
-    if (value === undefined || value === null || value === '') return '';
-    if (typeof value === 'string') return value.slice(0, 10);
-
-    const date = value instanceof Date ? value : new Date(value);
-    return Number.isNaN(date.getTime()) ? '' : date.toISOString().slice(0, 10);
-  };
-
   const formatCurrency = (amount, currency = 'PKR') => {
     if (amount === null || amount === undefined || amount === '') return '-';
     const numeric = Number(amount);
@@ -232,11 +231,18 @@ function TeacherList() {
     qualification: teacher?.qualification || '',
     specialization: teacher?.specialization || '',
     subject: teacher?.subject || '',
+    gender: teacher?.gender || '',
+    dob: toDateInputValue(teacher?.dob),
+    bloodGroup: teacher?.bloodGroup || '',
+    religion: teacher?.religion || '',
+    nationalId: teacher?.nationalId || '',
     subjects: Array.isArray(teacher?.subjects) ? teacher.subjects.join(', ') : '',
     classes: Array.isArray(teacher?.classes) ? teacher.classes.join(', ') : '',
     employmentStatus: teacher?.employmentStatus || teacher?.status || 'active',
     employmentType: teacher?.employmentType || '',
     joiningDate: toDateInputValue(teacher?.joiningDate),
+    probationEndDate: toDateInputValue(teacher?.probationEndDate),
+    contractEndDate: toDateInputValue(teacher?.contractEndDate),
     experienceYears: teacher?.experienceYears ?? '',
     workHoursPerWeek: teacher?.workHoursPerWeek ?? '',
     baseSalary: teacher?.baseSalary ?? '',
@@ -244,6 +250,7 @@ function TeacherList() {
     deductions: teacher?.deductions ?? '',
     salary: teacher?.salary ?? '',
     currency: teacher?.currency || 'PKR',
+    payFrequency: teacher?.payFrequency || 'monthly',
     paymentMethod: teacher?.paymentMethod || '',
     bankName: teacher?.bankName || '',
     accountNumber: teacher?.accountNumber || '',
@@ -358,11 +365,19 @@ function TeacherList() {
     assign('designation', editForm.designation.trim() || undefined);
     assign('qualification', editForm.qualification.trim() || undefined);
     assign('subject', editForm.subject.trim() || undefined);
+    assign('gender', editForm.gender || null);
+    assign('dob', editForm.dob || null);
+    assign('bloodGroup', editForm.bloodGroup || null);
+    assign('religion', editForm.religion.trim() || null);
+    assign('nationalId', editForm.nationalId.trim() || null);
     assign('employmentStatus', editForm.employmentStatus || undefined);
     assign('employmentType', editForm.employmentType.trim() || undefined);
-    assign('joiningDate', editForm.joiningDate || undefined);
+    assign('joiningDate', editForm.joiningDate || null);
+    assign('probationEndDate', editForm.probationEndDate || null);
+    assign('contractEndDate', editForm.contractEndDate || null);
     assign('specialization', editForm.specialization.trim() || undefined);
     assign('currency', editForm.currency || undefined);
+    assign('payFrequency', editForm.payFrequency || undefined);
     assign('paymentMethod', editForm.paymentMethod.trim() || undefined);
     assign('bankName', editForm.bankName.trim() || undefined);
     assign('accountNumber', editForm.accountNumber.trim() || undefined);
@@ -397,6 +412,22 @@ function TeacherList() {
         isClosable: true,
       });
       return;
+    }
+
+    try {
+      await syncTeacherClassSections({
+        labels: payload.classes,
+        campusId: editForm.campusId || editTeacher.campusId || campusId,
+        classesApi,
+      });
+    } catch (syncError) {
+      toast({
+        title: 'Teacher updated, but class sections were not fully saved',
+        description: syncError?.message || 'Reopen Edit Teacher and save the class list to retry.',
+        status: 'warning',
+        duration: 7000,
+        isClosable: true,
+      });
     }
 
     toast({
@@ -448,7 +479,7 @@ function TeacherList() {
     <Box
       pt={{ base: '130px', md: '80px', xl: '80px' }}
       px={4}
-      bg="gray.50"
+      bg={pageBg}
       minH="100vh"
     >
       {/* Page Header */}
@@ -462,12 +493,12 @@ function TeacherList() {
         <Box>
           <Heading
             size="lg"
-            color="gray.800"
+            color={textColor}
             mb={2}
           >
             Teachers Management
           </Heading>
-          <Text color="gray.600" fontSize="md">
+          <Text color={textColorSecondary} fontSize="md">
             Manage teaching staff and their information ({filteredTeachers.length} shown of {totalTeachers})
           </Text>
         </Box>
@@ -516,7 +547,7 @@ function TeacherList() {
           <Flex gap={4} direction={{ base: 'column', md: 'row' }} flexWrap='wrap'>
             <InputGroup flex={2}>
               <InputLeftElement>
-                <SearchIcon color="gray.300" />
+                <SearchIcon color={textColorSecondary} />
               </InputLeftElement>
               <Input
                 placeholder="Search teachers by name, email, or subject..."
@@ -569,7 +600,7 @@ function TeacherList() {
       <Card>
         <Box p={4}>
           <Flex justify="space-between" align="center">
-            <Heading size="md" color="gray.800">
+            <Heading size="md" color={textColor}>
               Teachers List ({filteredTeachers.length})
             </Heading>
             <HStack>
@@ -583,15 +614,15 @@ function TeacherList() {
         <Box pt={0} px={4} pb={4}>
           <Box overflowX="auto">
             <Table variant="simple">
-              <Thead>
+              <Thead bg={tableHeaderBg}>
                 <Tr>
-                  <Th>Teacher</Th>
-                  <Th>Contact</Th>
-                  <Th>Subject</Th>
-                  <Th>Department</Th>
-                  <Th>Experience</Th>
-                  <Th>Status</Th>
-                  <Th>Actions</Th>
+                  <Th color={textColorSecondary}>Teacher</Th>
+                  <Th color={textColorSecondary}>Contact</Th>
+                  <Th color={textColorSecondary}>Subject</Th>
+                  <Th color={textColorSecondary}>Department</Th>
+                  <Th color={textColorSecondary}>Experience</Th>
+                  <Th color={textColorSecondary}>Status</Th>
+                  <Th color={textColorSecondary}>Actions</Th>
                 </Tr>
               </Thead>
               <Tbody>
@@ -609,7 +640,7 @@ function TeacherList() {
                   const experienceLabel = teacher.experienceYears ? `${teacher.experienceYears} yrs` : teacher.experience || '—';
                   const teacherStatus = teacher.employmentStatus || teacher.status;
                   return (
-                    <Tr key={teacher.id} _hover={{ bg: 'gray.50' }}>
+                    <Tr key={teacher.id} _hover={{ bg: rowHoverBg }}>
                       <Td>
                         <Flex align="center">
                           <Avatar
@@ -619,10 +650,10 @@ function TeacherList() {
                             mr={3}
                           />
                           <Box>
-                            <Text fontWeight="bold" color="gray.800">
+                            <Text fontWeight="bold" color={textColor}>
                               {teacher.name || '—'}
                             </Text>
-                            <Text fontSize="sm" color="gray.600">
+                            <Text fontSize="sm" color={textColorSecondary}>
                               {teacher.qualification || '—'}
                             </Text>
                           </Box>
@@ -630,37 +661,37 @@ function TeacherList() {
                       </Td>
                       <Td>
                         <Box>
-                          <Text fontSize="sm" color="gray.800">
+                          <Text fontSize="sm" color={textColor}>
                             {teacher.email || '—'}
                           </Text>
-                          <Text fontSize="sm" color="gray.600">
+                          <Text fontSize="sm" color={textColorSecondary}>
                             {teacher.phone || '—'}
                           </Text>
                         </Box>
                       </Td>
                       <Td>
                         {primarySubject ? (
-                          <Badge colorScheme="blue" variant="subtle">
+                          <Badge colorScheme="blue" variant={badgeVariant}>
                             {primarySubject}
                           </Badge>
                         ) : (
-                          <Text fontSize="sm" color="gray.500">—</Text>
+                          <Text fontSize="sm" color={textColorSecondary}>—</Text>
                         )}
                       </Td>
                       <Td>
-                        <Text fontSize="sm" color="gray.800">
+                        <Text fontSize="sm" color={textColor}>
                           {teacher.department || '—'}
                         </Text>
                       </Td>
                       <Td>
-                        <Text fontSize="sm" color="gray.800">
+                        <Text fontSize="sm" color={textColor}>
                           {experienceLabel}
                         </Text>
                       </Td>
                       <Td>
                         <Badge
                           colorScheme={statusColor(teacherStatus)}
-                          variant="subtle"
+                          variant={badgeVariant}
                         >
                           {teacherStatus || '—'}
                         </Badge>
@@ -691,8 +722,8 @@ function TeacherList() {
 
           {/* Pagination */}
           {!loadingTeachers && filteredTeachers.length > 0 && (
-            <Flex justify="space-between" align="center" pt={4} borderTop="1px" borderColor="gray.200" mt={4}>
-              <Text fontSize="sm" color="gray.600">
+            <Flex justify="space-between" align="center" pt={4} borderTop="1px" borderColor={dividerColor} mt={4}>
+              <Text fontSize="sm" color={textColorSecondary}>
                 Showing 1 to {filteredTeachers.length} of {filteredTeachers.length} teachers
               </Text>
               <HStack>
@@ -712,11 +743,11 @@ function TeacherList() {
           {/* No Results */}
           {!loadingTeachers && filteredTeachers.length === 0 && (
             <Box textAlign="center" py={10}>
-              <Icon as={MdPeople} boxSize={12} color="gray.400" mb={4} />
-              <Text fontSize="lg" color="gray.600" mb={2}>
+              <Icon as={MdPeople} boxSize={12} color={textColorSecondary} mb={4} />
+              <Text fontSize="lg" color={textColor} mb={2}>
                 No teachers found
               </Text>
-              <Text fontSize="sm" color="gray.500">
+              <Text fontSize="sm" color={textColorSecondary}>
                 Try adjusting your search criteria or add a new teacher
               </Text>
             </Box>

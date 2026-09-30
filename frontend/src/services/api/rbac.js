@@ -1,6 +1,7 @@
 import { http } from '../http';
 
 export const getRoles = () => http.get('/rbac/roles');
+export const createRole = (data) => http.post('/rbac/roles', data);
 export const setRoleActive = (role, active) => http.put(`/rbac/roles/${encodeURIComponent(role)}/active`, { active });
 
 export const getPermissions = () => http.get('/rbac/permissions');

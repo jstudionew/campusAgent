@@ -23,6 +23,7 @@ import {
   TagLabel,
   useColorModeValue,
 } from '@chakra-ui/react';
+import { formatDateValue } from '../../../../utils/dateValues';
 
 const formatClassLabel = (cls) => {
   if (cls === undefined || cls === null) return '—';
@@ -117,7 +118,14 @@ const TeacherDetailsModal = ({ isOpen, onClose, teacher, formatCurrency, statusC
               <SimpleGrid columns={{ base: 1, md: 2 }} spacing={4}>
                 <InfoItem label='Email' value={teacher.email} textColor={textColor} textColorSecondary={textColorSecondary} />
                 <InfoItem label='Phone' value={teacher.phone} textColor={textColor} textColorSecondary={textColorSecondary} />
-                <InfoItem label='Joining Date' value={teacher.joiningDate} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Date of Birth' value={formatDateValue(teacher.dob)} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Joining Date' value={formatDateValue(teacher.joiningDate)} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Probation End Date' value={formatDateValue(teacher.probationEndDate)} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Contract End Date' value={formatDateValue(teacher.contractEndDate)} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Gender' value={teacher.gender} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Blood Group' value={teacher.bloodGroup} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Religion' value={teacher.religion} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='National ID' value={teacher.nationalId} textColor={textColor} textColorSecondary={textColorSecondary} />
                 <InfoItem
                   label='Experience (years)'
                   value={teacher.experienceYears ? `${teacher.experienceYears} yrs` : teacher.experience}
@@ -127,6 +135,7 @@ const TeacherDetailsModal = ({ isOpen, onClose, teacher, formatCurrency, statusC
                 <InfoItem label='Qualification' value={teacher.qualification} textColor={textColor} textColorSecondary={textColorSecondary} />
                 <InfoItem label='Specialization' value={teacher.specialization || teacher.subject} textColor={textColor} textColorSecondary={textColorSecondary} />
                 <InfoItem label='Employment Type' value={teacher.employmentType} textColor={textColor} textColorSecondary={textColorSecondary} />
+                <InfoItem label='Pay Frequency' value={teacher.payFrequency} textColor={textColor} textColorSecondary={textColorSecondary} />
                 <InfoItem
                   label='Work Hours / Week'
                   value={teacher.workHoursPerWeek ? `${teacher.workHoursPerWeek} hrs` : '-'}

@@ -26,7 +26,7 @@ export default function CampusSwitcher() {
 
     // Function to get campus image based on campus name or ID
     const getCampusImage = (campus) => {
-        if (campus?.image) return campus.image;
+        if (campus?.logoUrl) return campus.logoUrl;
         
         return '/school.png';
     };
@@ -44,20 +44,24 @@ export default function CampusSwitcher() {
     const menuItemActiveBg = useColorModeValue('brand.50', 'whiteAlpha.200');
 
     useEffect(() => {
-        if (user?.role !== 'admin' && user?.role !== 'owner') return;
+        if (!['admin', 'owner', 'superadmin'].includes(user?.role)) return;
         let mounted = true;
-        campusesApi.list({ pageSize: 100 })
+        const loadCampuses = () => campusesApi.list({ pageSize: 100 })
             .then((res) => {
                 if (!mounted) return;
-                const list = res?.rows || [];
-                setCampuses(list);
+                setCampuses(res?.rows || []);
             })
             .catch((err) => console.error('Failed to load campuses', err));
-        return () => { mounted = false; };
+        loadCampuses();
+        window.addEventListener('campus:updated', loadCampuses);
+        return () => {
+            mounted = false;
+            window.removeEventListener('campus:updated', loadCampuses);
+        };
     }, [user?.role]);
 
     useEffect(() => {
-        if (user?.role !== 'admin' && user?.role !== 'owner') return;
+        if (!['admin', 'owner', 'superadmin'].includes(user?.role)) return;
 
         if (!campusId || String(campusId).toLowerCase() === 'all') {
             setSelectedCampus({ id: 'all', name: 'All' });
@@ -82,7 +86,7 @@ export default function CampusSwitcher() {
         navigate('/admin/dashboard', { replace: true });
     };
 
-    if (user?.role !== 'admin' && user?.role !== 'owner') return null;
+    if (!['admin', 'owner', 'superadmin'].includes(user?.role)) return null;
 
     return (
         <Menu closeOnSelect={true}>
@@ -102,7 +106,7 @@ export default function CampusSwitcher() {
             >
                 <Flex alignItems='center' minW='0'>
                     <Image 
-                        src='/school.png' 
+                        src={selectedCampus?.logoUrl || '/school.png'}
                         alt='Campus Logo' 
                         w='24px' 
                         h='24px' 

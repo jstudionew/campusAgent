@@ -165,6 +165,7 @@ export default function Classes() {
   const toast = useToast();
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const subjectsTableHeaderBg = useColorModeValue('gray.50', 'gray.800');
 
   const fetchClasses = useCallback(async () => {
     setIsLoading(true);
@@ -1006,7 +1007,7 @@ export default function Classes() {
               {(createForm.assignments || []).map((row, idx) => (
                 <HStack key={idx} spacing={3} mb={3} align="flex-end">
                   <FormControl isRequired>
-                    <FormLabel>Subject</FormLabel>
+                    <FormLabel>Teacher Assignment Subject</FormLabel>
                     <Select
                       placeholder={subjectsLoading ? 'Loading...' : 'Select subject'}
                       value={row.subjectId || ''}
@@ -1043,7 +1044,7 @@ export default function Classes() {
               {(createClassSubjects || []).map((row, idx) => (
                 <HStack key={idx} spacing={3} mb={3} align="flex-end">
                   <FormControl isRequired>
-                    <FormLabel>Subject</FormLabel>
+                    <FormLabel>Grading Subject</FormLabel>
                     <Select
                       placeholder={subjectsLoading ? 'Loading...' : 'Select subject'}
                       value={row.subjectId || ''}
@@ -1102,7 +1103,7 @@ export default function Classes() {
                   <Text color={textColorSecondary}>No subjects assigned for this class yet.</Text>
                 ) : (
                   <Table size='sm' variant='simple'>
-                    <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+                    <Thead bg={subjectsTableHeaderBg}>
                       <Tr>
                         <Th>Subject</Th>
                         <Th isNumeric>Full Marks</Th>

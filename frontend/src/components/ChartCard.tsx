@@ -12,6 +12,7 @@ export type ChartCardProps = {
 export default function ChartCard({ title, subtitle, children, right, ariaLabel }: ChartCardProps) {
   const bg = useColorModeValue('white', 'gray.900');
   const borderColor = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const subtitleColor = useColorModeValue('gray.600', 'gray.400');
 
   return (
     <Box bg={bg} borderWidth="1px" borderColor={borderColor} borderRadius="md" boxShadow="sm" overflow="hidden">
@@ -21,7 +22,7 @@ export default function ChartCard({ title, subtitle, children, right, ariaLabel 
             {title}
           </Text>
           {subtitle ? (
-            <Text fontSize="sm" color={useColorModeValue('gray.600', 'gray.400')} noOfLines={2}>
+            <Text fontSize="sm" color={subtitleColor} noOfLines={2}>
               {subtitle}
             </Text>
           ) : null}

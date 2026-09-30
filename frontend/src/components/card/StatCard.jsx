@@ -27,6 +27,16 @@ const StatCard = ({ title, value, subValue, note, icon, trend, trendValue, color
   const color = useColorModeValue(theme.text, 'white');
   const iconBg = useColorModeValue(theme.iconBg, 'whiteAlpha.100');
   const borderColor = useColorModeValue(theme.border, 'whiteAlpha.200');
+  const cardShadow = useColorModeValue('0 4px 20px rgba(37, 99, 235, 0.05)', '0 8px 24px rgba(0, 0, 0, 0.4)');
+  const cardHoverShadow = useColorModeValue('0 10px 25px rgba(37, 99, 235, 0.12)', '0 12px 30px rgba(0, 0, 0, 0.6)');
+  const iconBorderColor = useColorModeValue('rgba(255,255,255,0.8)', 'whiteAlpha.100');
+  const iconColor = useColorModeValue(theme.text, 'brand.300');
+  const trendUpBg = useColorModeValue('green.100', 'rgba(16, 185, 129, 0.2)');
+  const trendDownBg = useColorModeValue('red.100', 'rgba(244, 63, 94, 0.2)');
+  const trendUpColor = useColorModeValue('green.800', 'green.200');
+  const trendDownColor = useColorModeValue('red.800', 'red.200');
+  const secondaryTextColor = useColorModeValue(theme.text, 'secondaryGray.400');
+  const noteTextColor = useColorModeValue(theme.text, 'secondaryGray.500');
 
   return (
     <Box
@@ -37,11 +47,11 @@ const StatCard = ({ title, value, subValue, note, icon, trend, trendValue, color
       borderColor={borderColor}
       position='relative'
       overflow='hidden'
-      boxShadow={useColorModeValue('0 4px 20px rgba(37, 99, 235, 0.05)', '0 8px 24px rgba(0, 0, 0, 0.4)')}
+      boxShadow={cardShadow}
       transition='all 0.25s cubic-bezier(0.4, 0, 0.2, 1)'
       _hover={{
         transform: 'translateY(-3px)',
-        boxShadow: useColorModeValue('0 10px 25px rgba(37, 99, 235, 0.12)', '0 12px 30px rgba(0, 0, 0, 0.6)')
+        boxShadow: cardHoverShadow
       }}
     >
       <Flex justify='space-between' align='start' mb='10px'>
@@ -54,14 +64,14 @@ const StatCard = ({ title, value, subValue, note, icon, trend, trendValue, color
           bg={iconBg}
           boxShadow="sm"
           border='1px solid'
-          borderColor={useColorModeValue('rgba(255,255,255,0.8)', 'whiteAlpha.100')}
+          borderColor={iconBorderColor}
         >
-          <Icon as={icon} w='22px' h='22px' color={useColorModeValue(theme.text, 'brand.300')} />
+          <Icon as={icon} w='22px' h='22px' color={iconColor} />
         </Flex>
         {trend && (
           <Badge
-            bg={trend === 'up' ? useColorModeValue('green.100', 'rgba(16, 185, 129, 0.2)') : useColorModeValue('red.100', 'rgba(244, 63, 94, 0.2)')}
-            color={trend === 'up' ? useColorModeValue('green.800', 'green.200') : useColorModeValue('red.800', 'red.200')}
+            bg={trend === 'up' ? trendUpBg : trendDownBg}
+            color={trend === 'up' ? trendUpColor : trendDownColor}
             borderRadius='full'
             px='2.5'
             py='0.5'
@@ -75,7 +85,7 @@ const StatCard = ({ title, value, subValue, note, icon, trend, trendValue, color
 
       <VStack align='start' spacing='3px' mt='6px'>
         <Text
-          color={useColorModeValue(theme.text, 'secondaryGray.400')}
+          color={secondaryTextColor}
           fontSize='xs'
           fontWeight='700'
           textTransform="uppercase"
@@ -87,12 +97,12 @@ const StatCard = ({ title, value, subValue, note, icon, trend, trendValue, color
           {value}
         </Text>
         {subValue && (
-          <Text color={useColorModeValue(theme.text, 'secondaryGray.400')} fontSize='xs' fontWeight='600' opacity={0.8}>
+          <Text color={secondaryTextColor} fontSize='xs' fontWeight='600' opacity={0.8}>
             {subValue}
           </Text>
         )}
         {note && (
-          <Text color={useColorModeValue(theme.text, 'secondaryGray.500')} fontSize='xs' fontWeight='500' opacity={0.7} mt='1px'>
+          <Text color={noteTextColor} fontSize='xs' fontWeight='500' opacity={0.7} mt='1px'>
             {note}
           </Text>
         )}

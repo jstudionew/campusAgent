@@ -1023,6 +1023,7 @@ export const getSMSRoutes = () => {
           name: 'System Settings',
           layout: '/admin',
           path: '/settings/system',
+          ownerOnly: true,
           component: lazy(() => import('./modules/admin/pages/Settings/SystemSettings')),
         },
         {
@@ -1036,6 +1037,7 @@ export const getSMSRoutes = () => {
           name: 'Master Data',
           layout: '/admin',
           path: '/settings/master-data',
+          ownerOnly: true,
           component: lazy(() => import('./modules/admin/pages/MasterDataManagement')),
         },
         {
@@ -1049,12 +1051,14 @@ export const getSMSRoutes = () => {
           name: 'Role Management',
           layout: '/admin',
           path: '/settings/roles',
+          ownerOnly: true,
           component: lazy(() => import('./modules/admin/pages/Settings/RoleManagement')),
         },
         {
           name: 'Permissions',
           layout: '/admin',
           path: '/settings/permissions',
+          ownerOnly: true,
           component: lazy(() => import('./modules/admin/pages/Settings/Permissions')),
         },
         {
@@ -1067,6 +1071,7 @@ export const getSMSRoutes = () => {
           name: 'School Profile',
           layout: '/admin',
           path: '/settings/school-profile',
+          ownerOnly: true,
           component: lazy(() => import('./modules/admin/pages/Settings/SchoolProfile')),
         },
         {

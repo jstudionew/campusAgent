@@ -1,6 +1,25 @@
 import { query } from '../config/db.js';
 import * as settings from './settings.service.js';
 
+let customRoleSchemaPromise;
+const activeRoleCache = new Map();
+const activeRoleCacheTtlMs = 5000;
+
+const ensureCustomRoleSchema = async () => {
+  if (!customRoleSchemaPromise) {
+    customRoleSchemaPromise = query(`
+      CREATE TABLE IF NOT EXISTS custom_roles (
+        role_key TEXT PRIMARY KEY,
+        name TEXT NOT NULL,
+        active BOOLEAN NOT NULL DEFAULT TRUE,
+        created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+        CHECK (role_key LIKE 'custom_%')
+      )
+    `);
+  }
+  await customRoleSchemaPromise;
+};
+
 export const FIXED_ROLES = [
   'owner', 'superadmin', 'admin',
   'academic_coordinator', 'admissions', 'reception', 'office_staff',
@@ -43,11 +62,15 @@ export const ALL_PERMS = [
   'licensing.manage'
 ];
 
+export const CAMPUS_ADMIN_PERMISSIONS = ALL_PERMS.filter(
+  (permission) => !['licensing.manage', 'settings.view', 'settings.manage'].includes(permission)
+);
+
 // Default permissions for new or unconfigured roles
 export const DEFAULT_ROLE_PERMISSIONS = {
   owner: ALL_PERMS,
   superadmin: ALL_PERMS.filter(p => p !== 'licensing.manage'),
-  admin: ALL_PERMS.filter(p => !['licensing.manage'].includes(p)),
+  admin: CAMPUS_ADMIN_PERMISSIONS,
   academic_coordinator: [
     'students.view', 'teachers.view', 'classes.view', 'classes.manage',
     'timetable.view', 'timetable.edit', 'assignments.view', 'exams.view', 'exams.create',
@@ -212,6 +235,77 @@ const PERM_TO_SUBROUTES = {
   'communication.send': ['/communication/announcements', '/communication/alerts', '/announcements', '/communications']
 };
 
+const getCustomRoles = async () => {
+  await ensureCustomRoleSchema();
+  const { rows } = await query('SELECT role_key AS id, name, active FROM custom_roles ORDER BY name ASC');
+  return rows;
+};
+
+export const isCustomRole = async (role) => {
+  if (typeof role !== 'string' || !role.startsWith('custom_')) return false;
+  await ensureCustomRoleSchema();
+  const { rows } = await query('SELECT 1 FROM custom_roles WHERE role_key = $1 LIMIT 1', [role]);
+  return rows.length > 0;
+};
+
+export const isRoleDefined = async (role) => FIXED_ROLES.includes(role) || await isCustomRole(role);
+
+export const isAssignableRole = async (role) => {
+  if (role === 'owner' || role === 'superadmin') return true;
+  if (!FIXED_ROLES.includes(role) && !await isCustomRole(role)) return false;
+  return isRoleActive(role);
+};
+
+export const isRoleActive = async (role) => {
+  const cached = activeRoleCache.get(role);
+  if (cached && Date.now() - cached.checkedAt < activeRoleCacheTtlMs) return cached.active;
+
+  let active;
+  if (await isCustomRole(role)) {
+    const { rows } = await query('SELECT active FROM custom_roles WHERE role_key = $1', [role]);
+    active = rows[0]?.active === true;
+  } else {
+    const item = await settings.getByKey(`role.active.${role}`);
+    active = item ? item.value === 'true' : FIXED_ROLES.includes(role);
+  }
+  activeRoleCache.set(role, { active, checkedAt: Date.now() });
+  return active;
+};
+
+export const makeCustomRoleKey = (name) => {
+  const slug = String(name || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9]+/g, '_')
+    .replace(/^_+|_+$/g, '')
+    .slice(0, 40);
+  return slug ? `custom_${slug}` : '';
+};
+
+export const createCustomRole = async ({ name, permissions = [], active = true }) => {
+  const displayName = String(name || '').trim();
+  if (displayName.length < 2 || displayName.length > 60) {
+    throw new Error('Role name must be between 2 and 60 characters');
+  }
+  if (FIXED_ROLES.some((role) => role.replace(/_/g, ' ').toLowerCase() === displayName.toLowerCase())) {
+    throw new Error('Choose a name that does not match a built-in role');
+  }
+  const roleKey = makeCustomRoleKey(displayName);
+  if (!roleKey || FIXED_ROLES.includes(roleKey)) throw new Error('Role name is not valid');
+  if (await isCustomRole(roleKey)) throw new Error('A role with this name already exists');
+
+  const validPermissions = Array.from(new Set((Array.isArray(permissions) ? permissions : [])
+    .filter((permission) => ALL_PERMS.includes(permission))));
+  await ensureCustomRoleSchema();
+  const { rows } = await query(
+    'INSERT INTO custom_roles (role_key, name, active) VALUES ($1, $2, $3) RETURNING role_key AS id, name, active',
+    [roleKey, displayName, active !== false]
+  );
+  activeRoleCache.set(roleKey, { active: active !== false, checkedAt: Date.now() });
+  await setPermissionsForRole(roleKey, validPermissions);
+  return { ...rows[0], users: 0, isCustom: true };
+};
+
 export const listRoles = async () => {
   const { rows } = await query('SELECT role, COUNT(*)::int AS count FROM users GROUP BY role');
   const counts = Object.fromEntries(rows.map(r => [r.role, r.count]));
@@ -226,19 +320,37 @@ export const listRoles = async () => {
       .join(' ');
     items.push({ id: r, name: formattedName, users: counts[r] || 0, active });
   }
+  for (const role of await getCustomRoles()) {
+    items.push({ ...role, users: counts[role.id] || 0, isCustom: true });
+  }
   return items;
 };
 
 export const setRoleActive = async (role, active) => {
+  if (await isCustomRole(role)) {
+    const { rows } = await query(
+      'UPDATE custom_roles SET active = $2 WHERE role_key = $1 RETURNING role_key AS id, name, active',
+      [role, Boolean(active)]
+    );
+    activeRoleCache.set(role, { active: Boolean(active), checkedAt: Date.now() });
+    return rows[0];
+  }
   if (!FIXED_ROLES.includes(role)) throw new Error('Invalid role');
   const key = `role.active.${role}`;
   const v = active ? 'true' : 'false';
-  return settings.setKey(key, v);
+  const saved = await settings.setKey(key, v);
+  activeRoleCache.set(role, { active: Boolean(active), checkedAt: Date.now() });
+  return saved;
 };
 
 export const listPermissions = async () => {
   const assignments = {};
-  for (const r of FIXED_ROLES) {
+  const roles = [...FIXED_ROLES, ...(await getCustomRoles()).map((role) => role.id)];
+  for (const r of roles) {
+    if (r === 'admin') {
+      assignments[r] = CAMPUS_ADMIN_PERMISSIONS;
+      continue;
+    }
     const key = `perms.${r}`;
     const item = await settings.getByKey(key);
     try {
@@ -251,11 +363,14 @@ export const listPermissions = async () => {
       assignments[r] = DEFAULT_ROLE_PERMISSIONS[r] || [];
     }
   }
-  return { roles: FIXED_ROLES, allPerms: ALL_PERMS, assignments };
+  return { roles, allPerms: ALL_PERMS, assignments };
 };
 
 export const setPermissionsForRole = async (role, perms = []) => {
-  if (!FIXED_ROLES.includes(role)) throw new Error('Invalid role');
+  if (!FIXED_ROLES.includes(role) && !await isCustomRole(role)) throw new Error('Invalid role');
+  if (role === 'admin') {
+    return { key: 'perms.admin', value: JSON.stringify(CAMPUS_ADMIN_PERMISSIONS) };
+  }
   const valid = perms.filter(p => ALL_PERMS.includes(p));
   const key = `perms.${role}`;
   const saved = await settings.setKey(key, JSON.stringify(valid));
@@ -296,7 +411,8 @@ export const setPermissionsForRole = async (role, perms = []) => {
 // Module-level access management
 export const listModuleAssignments = async () => {
   const assignments = {};
-  for (const r of FIXED_ROLES) {
+  const roles = [...FIXED_ROLES, ...(await getCustomRoles()).map((role) => role.id)];
+  for (const r of roles) {
     const mKey = `modules.allow.${r}`;
     const sKey = `subroutes.allow.${r}`;
     const mItem = await settings.getByKey(mKey);
@@ -321,11 +437,11 @@ export const listModuleAssignments = async () => {
 
     assignments[r] = { allowModules, allowSubroutes };
   }
-  return { roles: FIXED_ROLES, assignments };
+  return { roles, assignments };
 };
 
 export const setModulesForRole = async (role, data = {}) => {
-  if (!FIXED_ROLES.includes(role)) throw new Error('Invalid role');
+  if (!FIXED_ROLES.includes(role) && !await isCustomRole(role)) throw new Error('Invalid role');
   const allowModules = Array.isArray(data.allowModules) ? data.allowModules : [];
   const allowSubroutes = Array.isArray(data.allowSubroutes) ? data.allowSubroutes : [];
   await settings.setKey(`modules.allow.${role}`, JSON.stringify(allowModules));

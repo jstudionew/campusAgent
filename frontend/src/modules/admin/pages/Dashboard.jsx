@@ -1,5 +1,5 @@
 
-import React, { useMemo, useState } from 'react';
+import React, { useMemo, useRef, useState } from 'react';
 import {
   Box,
   Button,
@@ -18,7 +18,8 @@ import {
   Icon,
   useColorModeValue,
   Avatar,
-  Spacer
+  Spacer,
+  Spinner
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 
@@ -53,14 +54,16 @@ import * as dashboardApi from '../../../services/api/dashboard';
 import * as transportApi from '../../../services/api/transport';
 import { useAuth } from '../../../contexts/AuthContext';
 import usePolling from '../../../hooks/usePolling';
+import { formatDashboardDate, shouldShowDashboardTick } from '../../../utils/dashboardChartFormatting';
 
 // --- Custom Components ---
 
 // 2. Line Chart Card (Premium Area Chart)
-const LineChartCard = ({ title, categories, series, height = 250, activeRange, onRangeChange }) => {
+const LineChartCard = ({ title, categories, series, height = 250, activeRange, onRangeChange, loading }) => {
   const bg = useColorModeValue('white', 'navy.800');
   const borderColor = useColorModeValue('rgba(219, 234, 254, 0.8)', 'whiteAlpha.100');
   const mainColor = useColorModeValue('#2563EB', '#60A5FA');
+  const activeRangeBg = useColorModeValue('white', 'gray.700');
 
   // Chart options (same as before)
   const chartOptions = {
@@ -76,14 +79,42 @@ const LineChartCard = ({ title, categories, series, height = 250, activeRange, o
     fill: { type: 'gradient', gradient: { shadeIntensity: 1, opacityFrom: 0.4, opacityTo: 0.05, stops: [0, 100] } },
     xaxis: {
       categories: categories,
-      labels: { style: { colors: '#A3AED0', fontSize: '12px', fontWeight: 600, fontFamily: 'Inter' } },
+      labels: {
+        formatter: (value, timestamp, opts) => {
+          const index = Number.isInteger(opts?.dataPointIndex)
+            ? opts.dataPointIndex
+            : Number.isInteger(timestamp)
+              ? timestamp
+              : categories.indexOf(value);
+          return shouldShowDashboardTick(index, categories.length)
+            ? formatDashboardDate(value, activeRange)
+            : '';
+        },
+        hideOverlappingLabels: true,
+        rotate: -25,
+        rotateAlways: false,
+        trim: true,
+        maxHeight: 42,
+        style: { colors: '#718096', fontSize: '11px', fontWeight: 600, fontFamily: 'Inter' },
+      },
       axisBorder: { show: false },
       axisTicks: { show: false },
     },
-    yaxis: { show: true, labels: { style: { colors: '#A3AED0', fontSize: '12px', fontWeight: 600, fontFamily: 'Inter' } } },
+    yaxis: {
+      show: true,
+      min: title === 'Attendance Trend' ? 0 : undefined,
+      max: title === 'Attendance Trend' ? 100 : undefined,
+      tickAmount: title === 'Attendance Trend' ? 4 : undefined,
+      labels: { formatter: (value) => title === 'Attendance Trend' ? `${Math.round(value)}%` : value.toLocaleString(), style: { colors: '#718096', fontSize: '11px', fontWeight: 600, fontFamily: 'Inter' } },
+    },
     grid: { strokeDashArray: 5, borderColor: useColorModeValue('rgba(163, 174, 208, 0.1)', 'rgba(255, 255, 255, 0.05)'), yaxis: { lines: { show: true } }, xaxis: { lines: { show: false } } },
     dataLabels: { enabled: false },
-    tooltip: { theme: 'light', style: { fontSize: '12px', fontFamily: 'Inter' }, x: { show: true }, marker: { show: false } }
+    tooltip: {
+      theme: 'light',
+      style: { fontSize: '12px', fontFamily: 'Inter' },
+      x: { formatter: (value, opts) => formatDashboardDate(categories[opts.dataPointIndex] ?? value, activeRange, true) },
+      marker: { show: false },
+    },
   };
 
   return (
@@ -109,7 +140,7 @@ const LineChartCard = ({ title, categories, series, height = 250, activeRange, o
               key={range}
               size='xs'
               variant={activeRange === range ? 'solid' : 'ghost'}
-              bg={activeRange === range ? useColorModeValue('white', 'gray.700') : 'transparent'}
+              bg={activeRange === range ? activeRangeBg : 'transparent'}
               color={activeRange === range ? mainColor : 'gray.500'}
               shadow={activeRange === range ? 'sm' : 'none'}
               borderRadius='8px'
@@ -124,8 +155,14 @@ const LineChartCard = ({ title, categories, series, height = 250, activeRange, o
         </HStack>
       </Flex>
 
-      <Box h={height}>
-        <ApexCharts options={chartOptions} series={series} type="area" height="100%" />
+      <Box h={height} position='relative'>
+        {loading ? (
+          <Flex h='100%' align='center' justify='center' gap={3} color='gray.500'><Spinner size='sm' />Updating chart</Flex>
+        ) : series.some((item) => item.data?.some((value) => value !== null && value !== undefined && Number.isFinite(Number(value)))) ? (
+          <ApexCharts options={chartOptions} series={series} type="area" height="100%" />
+        ) : (
+          <Flex h='100%' align='center' justify='center' color='gray.500' fontSize='sm'>No activity in this date range</Flex>
+        )}
       </Box>
     </Box>
   );
@@ -148,9 +185,17 @@ export default function AdminDashboard() {
   const [feesMonthly, setFeesMonthly] = useState([]);
   const [attRange, setAttRange] = useState('7d');
   const [feeRange, setFeeRange] = useState('1y');
+  const [attendanceLoading, setAttendanceLoading] = useState(false);
+  const [feesLoading, setFeesLoading] = useState(false);
+  const attendanceRequestId = useRef(0);
+  const feesRequestId = useRef(0);
   const [loadError, setLoadError] = useState(false);
 
   usePolling(async () => {
+    const attendanceRequest = ++attendanceRequestId.current;
+    const feesRequest = ++feesRequestId.current;
+    setAttendanceLoading(true);
+    setFeesLoading(true);
     try {
       const [overviewRes, busesRes, attRes, feesRes] = await Promise.all([
         dashboardApi.getOverview(),
@@ -170,14 +215,20 @@ export default function AdminDashboard() {
         recentAlerts: Array.isArray(ovData.recentAlerts) ? ovData.recentAlerts : [],
       });
       setBuses(Array.isArray(busesRes?.items) ? busesRes.items : (Array.isArray(busesRes) ? busesRes : []));
-      setAttendanceWeekly(Array.isArray(attRes?.data) ? attRes.data : (Array.isArray(attRes) ? attRes : []));
-      setFeesMonthly(Array.isArray(feesRes?.data) ? feesRes.data : (Array.isArray(feesRes) ? feesRes : []));
+      if (attendanceRequest === attendanceRequestId.current) {
+        setAttendanceWeekly(Array.isArray(attRes?.data) ? attRes.data : (Array.isArray(attRes) ? attRes : []));
+      }
+      if (feesRequest === feesRequestId.current) {
+        setFeesMonthly(Array.isArray(feesRes?.data) ? feesRes.data : (Array.isArray(feesRes) ? feesRes : []));
+      }
       setLoadError(false);
     } catch (error) {
       console.error('Dashboard refresh failed', error);
       setLoadError(true);
     } finally {
       setLoading(false);
+      if (attendanceRequest === attendanceRequestId.current) setAttendanceLoading(false);
+      if (feesRequest === feesRequestId.current) setFeesLoading(false);
     }
   }, 30000);
 
@@ -210,15 +261,7 @@ export default function AdminDashboard() {
     return (attendanceWeekly || []).map((d) => {
       const present = Number(d.present) || 0;
       const total = Number(d.total) || 0;
-      const dateObj = new Date(d.day);
-      let dayLabel = dateObj.toLocaleDateString(undefined, { weekday: 'short' });
-      // If range is large (1y), showing full date might be better, or month name
-      if (attRange === '1y') {
-        dayLabel = dateObj.toLocaleDateString(undefined, { month: 'short' });
-      } else if (attRange === '1m') {
-        dayLabel = dateObj.getDate(); // Just day number for 30 days
-      }
-      return { day: dayLabel, value: total > 0 ? Math.round((present / total) * 100) : null };
+      return { day: d.day, value: total > 0 ? Math.round((present / total) * 100) : null };
     });
   }, [attendanceWeekly, attRange]);
 
@@ -228,11 +271,43 @@ export default function AdminDashboard() {
 
   const feeMonths = useMemo(() => {
     return (feesMonthly || []).map((m) => {
-      const dt = new Date(m.month);
-      const label = dt.toLocaleDateString(undefined, { month: 'short' });
-      return { month: label, collected: Number(m.collected) || 0 };
+      return { month: m.month, collected: Number(m.collected) || 0 };
     });
   }, [feesMonthly]);
+
+  const changeAttendanceRange = async (range) => {
+    setAttRange(range);
+    const requestId = ++attendanceRequestId.current;
+    setAttendanceLoading(true);
+    try {
+      const response = await dashboardApi.getAttendanceWeekly({ range });
+      if (requestId === attendanceRequestId.current) {
+        setAttendanceWeekly(Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : []);
+      }
+    } catch (error) {
+      console.error('Attendance trend refresh failed', error);
+      setLoadError(true);
+    } finally {
+      if (requestId === attendanceRequestId.current) setAttendanceLoading(false);
+    }
+  };
+
+  const changeFeeRange = async (range) => {
+    setFeeRange(range);
+    const requestId = ++feesRequestId.current;
+    setFeesLoading(true);
+    try {
+      const response = await dashboardApi.getFeesMonthly({ range });
+      if (requestId === feesRequestId.current) {
+        setFeesMonthly(Array.isArray(response?.data) ? response.data : Array.isArray(response) ? response : []);
+      }
+    } catch (error) {
+      console.error('Fee collection trend refresh failed', error);
+      setLoadError(true);
+    } finally {
+      if (requestId === feesRequestId.current) setFeesLoading(false);
+    }
+  };
 
   const feeDonut = useMemo(() => {
     const totalCollected = (feesMonthly || []).reduce((sum, m) => sum + Number(m.collected || 0), 0);
@@ -363,7 +438,8 @@ export default function AdminDashboard() {
             series={[{ name: 'Attendance', data: attendanceBars.map(d => d.value) }]}
             height={280}
             activeRange={attRange}
-            onRangeChange={setAttRange}
+            onRangeChange={changeAttendanceRange}
+            loading={attendanceLoading}
           />
           <LineChartCard
             title="Fee Collection"
@@ -371,7 +447,8 @@ export default function AdminDashboard() {
             series={[{ name: 'Collections', data: feeMonths.map(d => d.collected) }]}
             height={280}
             activeRange={feeRange}
-            onRangeChange={setFeeRange}
+            onRangeChange={changeFeeRange}
+            loading={feesLoading}
           />
         </SimpleGrid>
 

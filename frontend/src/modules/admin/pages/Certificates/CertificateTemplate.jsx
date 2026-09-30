@@ -178,7 +178,7 @@ export default function CertificateTemplate() {
                             ) : templates.length === 0 ? (
                                 <Tr><Td colSpan={5} textAlign="center">No templates found</Td></Tr>
                             ) : templates.filter(t => t.name?.toLowerCase().includes(search.toLowerCase())).map((template) => (
-                                <Tr key={template.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={template.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{template.name}</Text></Td>
                                     <Td>{template.type}</Td>
                                     <Td>{template.layout}</Td>
@@ -397,19 +397,19 @@ export default function CertificateTemplate() {
                             <Box borderWidth="1px" borderRadius="md" p={3} mb={3}>
                                 <Text fontWeight="600" mb={2}>Signature 1</Text>
                                 <FormControl mb={2}>
-                                    <FormLabel>Name</FormLabel>
+                                    <FormLabel>Signer 1 Name</FormLabel>
                                     <Input value={form.signature1Name || ''} onChange={(e) => setForm({ ...form, signature1Name: e.target.value })} />
                                 </FormControl>
                                 <FormControl mb={2}>
-                                    <FormLabel>Title</FormLabel>
+                                    <FormLabel>Signer 1 Title</FormLabel>
                                     <Input value={form.signature1Title || ''} onChange={(e) => setForm({ ...form, signature1Title: e.target.value })} />
                                 </FormControl>
                                 <FormControl mb={2}>
-                                    <FormLabel>Signature Image URL</FormLabel>
+                                    <FormLabel>Signature 1 Image URL</FormLabel>
                                     <Input value={form.signature1ImageUrl || ''} onChange={(e) => setForm({ ...form, signature1ImageUrl: e.target.value })} placeholder="https://..." />
                                 </FormControl>
                                 <FormControl>
-                                    <FormLabel>Upload Signature Image</FormLabel>
+                                    <FormLabel>Upload Signature 1 Image</FormLabel>
                                     <Input type="file" accept="image/*" p={1} onChange={(e) => handleAssetFile(e.target.files?.[0], 'signature1ImageUrl')} />
                                     {form.signature1ImageUrl ? (
                                         <Box mt={2} borderWidth="1px" borderRadius="md" p={2}>
@@ -422,19 +422,19 @@ export default function CertificateTemplate() {
                             <Box borderWidth="1px" borderRadius="md" p={3} mb={2}>
                                 <Text fontWeight="600" mb={2}>Signature 2</Text>
                                 <FormControl mb={2}>
-                                    <FormLabel>Name</FormLabel>
+                                    <FormLabel>Signer 2 Name</FormLabel>
                                     <Input value={form.signature2Name || ''} onChange={(e) => setForm({ ...form, signature2Name: e.target.value })} />
                                 </FormControl>
                                 <FormControl mb={2}>
-                                    <FormLabel>Title</FormLabel>
+                                    <FormLabel>Signer 2 Title</FormLabel>
                                     <Input value={form.signature2Title || ''} onChange={(e) => setForm({ ...form, signature2Title: e.target.value })} />
                                 </FormControl>
                                 <FormControl mb={2}>
-                                    <FormLabel>Signature Image URL</FormLabel>
+                                    <FormLabel>Signature 2 Image URL</FormLabel>
                                     <Input value={form.signature2ImageUrl || ''} onChange={(e) => setForm({ ...form, signature2ImageUrl: e.target.value })} placeholder="https://..." />
                                 </FormControl>
                                 <FormControl>
-                                    <FormLabel>Upload Signature Image</FormLabel>
+                                    <FormLabel>Upload Signature 2 Image</FormLabel>
                                     <Input type="file" accept="image/*" p={1} onChange={(e) => handleAssetFile(e.target.files?.[0], 'signature2ImageUrl')} />
                                     {form.signature2ImageUrl ? (
                                         <Box mt={2} borderWidth="1px" borderRadius="md" p={2}>

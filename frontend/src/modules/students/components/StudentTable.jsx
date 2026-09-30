@@ -59,6 +59,7 @@ const StudentTable = ({
   navigateToStudentProfile,
 }) => {
   const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const textColorSecondary = useColorModeValue('secondaryGray.600', 'gray.400');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.100');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
   
@@ -219,11 +220,11 @@ const StudentTable = ({
               <Tr>
                 <Td colSpan={12}>
                   <Flex direction="column" justify="center" align="center" py={8}>
-                    <Icon as={MdSchool} w={12} h={12} color="gray.400" mb={3} />
+                    <Icon as={MdSchool} w={12} h={12} color={textColorSecondary} mb={3} />
                     <Text fontSize="lg" fontWeight="medium">
                       No students found
                     </Text>
-                    <Text color="gray.500">
+                    <Text color={textColorSecondary}>
                       Try adjusting your search or filters
                     </Text>
                   </Flex>
@@ -256,7 +257,7 @@ const StudentTable = ({
                         >
                           {student.name}
                         </Text>
-                        <Text fontSize="sm" color="gray.500">
+                        <Text fontSize="sm" color={textColorSecondary}>
                           {student.email}
                         </Text>
                       </Box>
@@ -280,7 +281,7 @@ const StudentTable = ({
                     <Flex direction="column">
                       <Text fontWeight="500">{student.parentName}</Text>
                       <Flex align="center">
-                        <Text fontSize="sm" color="gray.500" mr={2}>
+                        <Text fontSize="sm" color={textColorSecondary} mr={2}>
                           {student.parentPhone}
                         </Text>
                         <Tooltip label="Message on WhatsApp">

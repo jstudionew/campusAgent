@@ -109,6 +109,10 @@ const StudentAttendance = () => {
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
   const textColor = useColorModeValue('gray.800', 'white');
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const sectionBg = useColorModeValue('gray.50', 'gray.800');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
+  const selectedStudentBg = useColorModeValue('blue.50', 'blue.900');
   const toast = useToast();
 
   // Dynamic class/section options from backend
@@ -419,7 +423,7 @@ const StudentAttendance = () => {
           <Heading as="h3" size="lg" mb="2">
             Student Attendance
           </Heading>
-          <Text color="gray.500">Track and manage student attendance records</Text>
+          <Text color={textColorSecondary}>Track and manage student attendance records</Text>
         </GridItem>
         <GridItem display="flex" justifyContent={{ base: 'flex-start', md: 'flex-end' }}>
           <ButtonGroup spacing={2}>
@@ -473,7 +477,7 @@ const StudentAttendance = () => {
           <Flex justify='space-between' align='center' mb='12px'>
             <Box>
               <Text fontSize='lg' fontWeight='bold'>Weekly Attendance Trend</Text>
-              <Text fontSize='sm' color='gray.500'>Present/Absent/Leave (last 7 days)</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Present/Absent/Leave (last 7 days)</Text>
             </Box>
             <Button size='sm' variant='outline' leftIcon={<MdRefresh />} onClick={refreshAll}>Refresh</Button>
           </Flex>
@@ -500,7 +504,7 @@ const StudentAttendance = () => {
           <Flex justify='space-between' align='center' mb='12px'>
             <Box>
               <Text fontSize='lg' fontWeight='bold'>Today's Status Split</Text>
-              <Text fontSize='sm' color='gray.500'>Present vs Absent vs Leave</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Present vs Absent vs Leave</Text>
             </Box>
             <Badge colorScheme='blue'>{new Date().toLocaleDateString()}</Badge>
           </Flex>
@@ -616,7 +620,7 @@ const StudentAttendance = () => {
 
                     return (
                       <Tr key={student.id}
-                        _hover={{ bg: 'gray.50' }}
+                        _hover={{ bg: rowHoverBg }}
                         cursor="pointer"
                         onClick={() => handleStudentSelect(student)}
                       >
@@ -728,14 +732,14 @@ const StudentAttendance = () => {
           <TabPanel p={0} pt={5}>
             <Card p={4}>
               <Heading size="md" mb={4}>Monthly Attendance Overview</Heading>
-              <Text color="gray.600" mb={4}>
+              <Text color={textColorSecondary} mb={4}>
                 Select a student from the list below to view their detailed attendance for the month.
               </Text>
 
               <Grid templateColumns={{ base: '1fr', lg: '300px 1fr' }} gap={6}>
                 <GridItem>
                   <Card p={0} maxH="500px" overflow="auto">
-                    <Box bg="gray.50" p={3} borderBottomWidth="1px">
+                    <Box bg={sectionBg} p={3} borderBottomWidth="1px">
                       <Text fontWeight="bold">Students</Text>
                     </Box>
                     <Box>
@@ -746,14 +750,14 @@ const StudentAttendance = () => {
                             p={3}
                             align="center"
                             cursor="pointer"
-                            _hover={{ bg: 'gray.50' }}
-                            bg={selectedStudent?.id === student.id ? 'blue.50' : 'transparent'}
+                            _hover={{ bg: rowHoverBg }}
+                            bg={selectedStudent?.id === student.id ? selectedStudentBg : 'transparent'}
                             onClick={() => setSelectedStudent(student)}
                           >
                             <Avatar size="sm" name={student.name} src={student.photo} mr={3} />
                             <Box>
                               <Text fontWeight="medium">{student.name}</Text>
-                              <Text fontSize="xs" color="gray.500">{student.rollNumber} | {student.class}-{student.section}</Text>
+                              <Text fontSize="xs" color={textColorSecondary}>{student.rollNumber} | {student.class}-{student.section}</Text>
                             </Box>
                           </Flex>
                         ))}
@@ -765,13 +769,13 @@ const StudentAttendance = () => {
                 <GridItem>
                   {selectedStudent ? (
                     <Card p={0}>
-                      <Box bg="gray.50" p={4} borderBottomWidth="1px">
+                      <Box bg={sectionBg} p={4} borderBottomWidth="1px">
                         <Flex justify="space-between" align="center">
                           <Flex align="center">
                             <Avatar size="sm" name={selectedStudent.name} src={selectedStudent.photo} mr={3} />
                             <Box>
                               <Text fontWeight="bold">{selectedStudent.name}</Text>
-                              <Text fontSize="sm" color="gray.500">
+                              <Text fontSize="sm" color={textColorSecondary}>
                                 {selectedStudent.rollNumber} | Class {selectedStudent.class}-{selectedStudent.section}
                               </Text>
                             </Box>
@@ -843,7 +847,7 @@ const StudentAttendance = () => {
                       align="center"
                       direction="column"
                       h="100%"
-                      bg="gray.50"
+                      bg={sectionBg}
                       borderRadius="md"
                       p={10}
                     >
@@ -860,7 +864,7 @@ const StudentAttendance = () => {
           <TabPanel p={0} pt={5}>
             <Card p={4}>
               <Heading size="md" mb={4}>Attendance Reports</Heading>
-              <Text color="gray.600" mb={6}>
+              <Text color={textColorSecondary} mb={6}>
                 Generate and view attendance reports for different time periods.
               </Text>
 

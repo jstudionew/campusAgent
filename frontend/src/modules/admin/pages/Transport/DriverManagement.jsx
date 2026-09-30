@@ -49,6 +49,9 @@ import StatCard from '../../../../components/card/StatCard';
 import * as driversApi from '../../../../services/api/drivers';
 import * as transportApi from '../../../../services/api/transport';
 import { campusesApi } from '../../../../services/api';
+import { downloadCsv } from '../../../../utils/campusExports';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 
 const normalize = (d) => ({
   id: d.id,
@@ -127,6 +130,33 @@ export default function DriverManagement() {
     return { total, onDuty, offDuty, avgRating };
   }, [rows]);
 
+  const exportCSV = () => {
+    downloadCsv({
+      filename: 'drivers.csv',
+      headers: ['Driver ID', 'Name', 'Phone', 'License', 'Status', 'Assigned Bus', 'Rating'],
+      rows: filtered.map((driver) => [driver.id, driver.name, driver.phone, driver.license, driver.status, driver.bus, driver.rating]),
+    });
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text('Driver Management Report', 40, 40);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 58);
+    autoTable(doc, {
+      startY: 72,
+      head: [['Driver ID', 'Name', 'Phone', 'License', 'Status', 'Assigned Bus', 'Rating']],
+      body: filtered.map((driver) => [driver.id, driver.name, driver.phone, driver.license, driver.status, driver.bus, driver.rating]),
+      styles: { fontSize: 9, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save('drivers.pdf');
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       <Flex mb={5} justify="space-between" align="center">
@@ -136,8 +166,8 @@ export default function DriverManagement() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdAdd />} colorScheme="blue" onClick={() => { setForm({ id: '', name: '', phone: '', license: '', status: 'On Duty', bus: '', busId: '', rating: 0, campusId: '' }); editDisc.onOpen(); }}>Add Driver</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!filtered.length}>Export CSV</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' onClick={exportPDF} isDisabled={!filtered.length}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -181,7 +211,7 @@ export default function DriverManagement() {
             </Thead>
             <Tbody>
               {filtered.map((d) => (
-                <Tr key={d.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={d.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Text fontWeight='600'>{d.name}</Text></Td>
                   <Td>{d.id}</Td>
                   <Td>{d.phone}</Td>

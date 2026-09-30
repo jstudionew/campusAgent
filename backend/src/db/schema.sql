@@ -8,20 +8,25 @@ CREATE TABLE IF NOT EXISTS users (
   created_at TIMESTAMP NOT NULL DEFAULT NOW()
 );
 
--- Upgrade roles to include owner and parent
+-- Role identifiers are validated by the application so custom RBAC roles can be assigned.
 ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users
-  ADD CONSTRAINT users_role_check CHECK (role IN ('owner','admin','teacher','student','driver','parent'));
+DO $$
+BEGIN
+  IF EXISTS (
+    SELECT 1 FROM information_schema.columns
+    WHERE table_schema = 'public' AND table_name = 'users'
+      AND column_name = 'role' AND data_type = 'USER-DEFINED'
+  ) THEN
+    ALTER TABLE users ALTER COLUMN role TYPE TEXT USING role::text;
+  END IF;
+END $$;
 
--- Expand roles to include all RBAC system roles
-ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (
-  role IN (
-    'owner','superadmin','admin','teacher','student','driver','parent',
-    'academic_coordinator','admissions','reception','office_staff',
-    'finance','finance_manager','hr_manager','hr',
-    'it_admin','it_support','library','transport','security'
-  )
+CREATE TABLE IF NOT EXISTS custom_roles (
+  role_key TEXT PRIMARY KEY,
+  name TEXT NOT NULL,
+  active BOOLEAN NOT NULL DEFAULT TRUE,
+  created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+  CHECK (role_key LIKE 'custom_%')
 );
 
 -- Job title and department for users

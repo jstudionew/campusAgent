@@ -86,6 +86,7 @@ const normalizeTeacherPayload = (raw = {}, { partial = false } = {}) => {
   assignString('department');
   assignString('designation');
   assignNumber('experienceYears');
+  assignNumber('campusId');
   assignString('specialization');
   assignString('employmentStatus');
   assignString('currency');
@@ -265,6 +266,9 @@ export const create = async (req, res, next) => {
   try {
     try { await ensureAuthSchema(); } catch (_) {}
     const payload = normalizeTeacherPayload(req.body, { partial: false });
+    if (payload.campusId && !assertResourceCampusAccess(req, payload.campusId)) {
+      return res.status(403).json({ message: 'Forbidden campus access' });
+    }
     let credentials = null;
     // Auto-provision user account if not already linked
     if (!payload.userId) {
@@ -307,6 +311,9 @@ export const update = async (req, res, next) => {
     if (!existing) return res.status(404).json({ message: 'Teacher not found' });
     if (!assertResourceCampusAccess(req, existing.campusId)) return res.status(404).json({ message: 'Teacher not found' });
     const payload = normalizeTeacherPayload(req.body, { partial: true });
+    if (payload.campusId && !assertResourceCampusAccess(req, payload.campusId)) {
+      return res.status(403).json({ message: 'Forbidden campus access' });
+    }
     const updated = await teachers.update(Number(req.params.id), payload);
     if (!updated) return res.status(404).json({ message: 'Teacher not found' });
     await appendAuditLog({ actorId: req.user?.id, actorRole: req.user?.role, action: 'teacher_update', entityType: 'teacher', entityId: updated?.id, campusId: req.user?.campusId || existing.campusId, details: { changedFields: Object.keys(payload) }, ipAddress: req.ip, userAgent: req.headers['user-agent'] });

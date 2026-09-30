@@ -6,12 +6,15 @@ import StatCard from '../../../../components/card/StatCard';
 import BarChart from '../../../../components/charts/BarChart';
 import PieChart from '../../../../components/charts/PieChart';
 import financeApi from '../../../../services/financeApi';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, escapeHtml, loadCampusForExport, openCampusPrintDocument } from '../../../../utils/campusExports';
 
 const defaultCategories = ['Utilities', 'Transport', 'Supplies', 'Maintenance', 'Salaries', 'Events'];
 const defaultVendors = ['Alpha Stationers', 'Metro Gas', 'City Transport', 'FixIt Services'];
 
 export default function Expenses() {
   const toast = useToast();
+  const { campusId } = useAuth();
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   const [category, setCategory] = useState('all');
@@ -120,20 +123,39 @@ export default function Expenses() {
     }
   };
 
-  const exportCSV = () => {
-    const header = ['ID', 'Date', 'Category', 'Vendor', 'Description', 'Amount', 'Status'];
-    const data = rows.map(r => [r.id, r.date?.slice(0, 10), r.category, r.vendor, r.description, r.amount, r.status]);
-    const csv = [header, ...data].map(a => a.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a'); a.href = url; a.download = 'expenses.csv'; a.click();
-    URL.revokeObjectURL(url);
+  const exportCSV = async () => {
+    try {
+      const exported = [];
+      let pageNumber = 1;
+      while (true) {
+        const response = await financeApi.expenses.list({ search, category, vendor, status, from, to, page: pageNumber, pageSize: 200 });
+        const records = Array.isArray(response?.items) ? response.items : [];
+        exported.push(...records);
+        if (records.length < 200) break;
+        pageNumber += 1;
+      }
+      const campusIds = Array.from(new Set(exported.map((row) => row.campusId || row.campus_id || campusId).filter(Boolean)));
+      const campusRows = await Promise.all(campusIds.map((id) => loadCampusForExport(id)));
+      const campusById = new Map(campusRows.filter(Boolean).map((campus) => [String(campus.id), campus]));
+      downloadCsv({
+        filename: 'expenses.csv',
+        headers: ['Expense ID', 'Campus ID', 'Campus Name', 'Campus Logo URL', 'Date', 'Category', 'Vendor', 'Description', 'Amount', 'Status'],
+        rows: exported.map((row) => {
+          const id = row.campusId || row.campus_id || campusId;
+          const campus = campusById.get(String(id));
+          return [row.id, id, campus?.name, campus?.logoUrl, row.date?.slice(0, 10), row.category, row.vendor, row.description, row.amount, row.status];
+        }),
+      });
+    } catch (error) {
+      toast({ title: 'Expense export failed', description: error?.message || 'Could not load current expenses.', status: 'error', duration: 4000 });
+    }
   };
 
   // ... (PDF export reused logic or removed if too complex, keeping simple reused logic for now)
-  const exportPDF = () => {
-    // Basic implementation for now
-    window.print();
+  const exportPDF = async () => {
+    const campus = await loadCampusForExport(campusId);
+    const content = `<table><thead><tr>${['Expense ID', 'Date', 'Category', 'Vendor', 'Description', 'Amount', 'Status'].map((heading) => `<th>${escapeHtml(heading)}</th>`).join('')}</tr></thead><tbody>${rows.map((row) => `<tr>${[row.id, row.date?.slice(0, 10), row.category, row.vendor, row.description, `Rs. ${Number(row.amount || 0).toLocaleString()}`, row.status].map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    await openCampusPrintDocument({ campusId, campus, title: 'Expenses', documentId: `Campus ${campus?.id || campusId || 'All'}`, content });
   };
 
   return (
@@ -236,7 +258,7 @@ export default function Expenses() {
                 ) : rows.length === 0 ? (
                   <Tr><Td colSpan={8} textAlign="center"><Text my={5}>No expenses found</Text></Td></Tr>
                 ) : rows.map((r) => (
-                  <Tr key={r.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={r.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                     <Td><Text fontWeight='600'>{r.id}</Text></Td>
                     <Td><Text color={textColorSecondary}>{r.date ? r.date.slice(0, 10) : ''}</Text></Td>
                     <Td>{r.category}</Td>

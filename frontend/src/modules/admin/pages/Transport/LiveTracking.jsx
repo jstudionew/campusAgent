@@ -100,7 +100,7 @@ export default function LiveTracking() {
         <Card>
           <VStack align='stretch' spacing={3}>
             {filtered.map((b) => (
-              <Flex key={b.id} p={3} borderRadius='md' _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }} justify='space-between' align='center'>
+              <Flex key={b.id} p={3} borderRadius='md' _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }} justify='space-between' align='center'>
                 <HStack>
                   <Icon as={MdDirectionsBus} boxSize={7} color='blue.500' />
                   <Box>

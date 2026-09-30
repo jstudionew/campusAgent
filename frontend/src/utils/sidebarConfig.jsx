@@ -21,6 +21,7 @@ import { ADMIN_LAYOUT_ROLES } from '../config/authRoles';
 // Function to get sidebar routes based on user role
 export const getSidebarRoutes = (role) => {
   if (role === 'owner' || ADMIN_LAYOUT_ROLES.includes(role)) return getAdminRoutes();
+  if (String(role || '').startsWith('custom_')) return getAdminRoutes();
   switch (role) {
     case 'teacher':
       return getTeacherRoutes();
@@ -190,6 +191,7 @@ export const mergeRoutes = (existingRoutes, userRole) => {
 export const getDashboardPath = (role) => {
   if (role === 'owner') return '/admin/settings/licensing';
   if (role === 'parent') return '/admin/parent/alerts';
+  if (String(role || '').startsWith('custom_')) return '/admin/dashboard';
   if (ADMIN_LAYOUT_ROLES.includes(role)) return '/admin/dashboard';
   
   switch (role) {

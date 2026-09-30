@@ -105,7 +105,7 @@ export default function Unit() {
                             ) : units.length === 0 ? (
                                 <Tr><Td colSpan={4} textAlign="center">No units found</Td></Tr>
                             ) : units.filter(u => u.name?.toLowerCase().includes(search.toLowerCase())).map((unit) => (
-                                <Tr key={unit.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={unit.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{unit.name}</Text></Td>
                                     <Td>{unit.symbol}</Td>
                                     <Td isNumeric>{unit.conversionRate}</Td>

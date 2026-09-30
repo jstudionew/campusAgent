@@ -46,6 +46,9 @@ import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 import StatCard from '../../../../components/card/StatCard';
 import * as transportApi from '../../../../services/api/transport';
+import { downloadCsv } from '../../../../utils/campusExports';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 
 export default function RoutesStops() {
   const toast = useToast();
@@ -99,6 +102,47 @@ export default function RoutesStops() {
     return { routes: rcount, stops: totalStops, active };
   }, [routes]);
 
+  const exportRows = [
+    ...filtered.map((route) => ['Route', route.id, route.name, route.start, route.end, route.buses, route.stops, '']),
+    ...stops.map((stop) => [
+      'Stop',
+      selected,
+      routes.find((route) => String(route.id) === String(selected))?.name || '',
+      '',
+      '',
+      '',
+      '',
+      stop.name,
+    ]),
+  ];
+
+  const exportCSV = () => {
+    downloadCsv({
+      filename: 'routes_and_stops.csv',
+      headers: ['Record Type', 'Route ID', 'Route Name', 'Start', 'End', 'Buses', 'Stop Count', 'Stop Name'],
+      rows: exportRows,
+    });
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text('Routes and Stops Report', 40, 40);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 58);
+    autoTable(doc, {
+      startY: 72,
+      head: [['Type', 'Route ID', 'Route Name', 'Start', 'End', 'Buses', 'Stop Count', 'Stop Name']],
+      body: exportRows,
+      styles: { fontSize: 9, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save('routes_and_stops.pdf');
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       <Flex mb={5} justify="space-between" align="center">
@@ -108,8 +152,8 @@ export default function RoutesStops() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdAdd />} colorScheme='blue' onClick={() => { setRouteForm({ id: '', name: '', start: '', end: '' }); editDisc.onOpen(); }}>Add Route</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!exportRows.length}>Export CSV</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' onClick={exportPDF} isDisabled={!exportRows.length}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -152,7 +196,7 @@ export default function RoutesStops() {
               </Thead>
               <Tbody>
                 {filtered.map((r) => (
-                  <Tr key={r.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={r.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                     <Td><Badge colorScheme='blue'>{r.id}</Badge></Td>
                     <Td><Text fontWeight='600'>{r.name}</Text></Td>
                     <Td isNumeric>{r.buses || 0}</Td>

@@ -9,6 +9,29 @@ export const listRoles = async (req, res, next) => {
   } catch (e) { next(e); }
 };
 
+export const createRole = async (req, res, next) => {
+  try {
+    const rolePermissions = Array.isArray(req.body.permissions) ? req.body.permissions : [];
+    const requesterRole = String(req.user?.role || '').toLowerCase();
+    for (const permission of rolePermissions) {
+      if (!await canDelegatePermission(requesterRole, permission)) {
+        return res.status(403).json({ message: `Forbidden: You cannot delegate permission '${permission}'` });
+      }
+    }
+    const role = await rbac.createCustomRole({
+      name: req.body.name,
+      permissions: rolePermissions,
+      active: req.body.active !== false,
+    });
+    return res.status(201).json(role);
+  } catch (e) {
+    if (e.code === '23505' || e.message?.includes('already exists')) {
+      return res.status(409).json({ message: 'A role with this name already exists' });
+    }
+    return next(e);
+  }
+};
+
 export const setRoleActive = async (req, res, next) => {
   try {
     const role = String(req.params.role || '').toLowerCase();
@@ -160,6 +183,9 @@ export const getMyModules = async (req, res, next) => {
     if (!role) return res.status(400).json({ message: 'No role' });
     const data = await rbac.listModuleAssignments();
     const item = data?.assignments?.[role] || { allowModules: [], allowSubroutes: [] };
+    if (role === 'admin') {
+      return res.json({ ...item, allowSubroutes: 'ALL' });
+    }
     res.json(item);
   } catch (e) { next(e); }
 };

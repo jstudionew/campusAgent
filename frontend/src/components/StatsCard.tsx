@@ -19,6 +19,11 @@ export default function StatsCard({ title, subtitle, value, delta, icon, sparkli
   const isNegative = delta && delta.trim().startsWith('-');
   const deltaBg = useColorModeValue(isNegative ? 'red.50' : 'green.50', isNegative ? 'rgba(244,63,94,0.15)' : 'rgba(16,185,129,0.15)');
   const deltaColor = useColorModeValue(isNegative ? 'red.600' : 'green.600', isNegative ? 'red.200' : 'green.200');
+  const iconBg = useColorModeValue('brand.50', 'whiteAlpha.100');
+  const iconColor = useColorModeValue('brand.600', 'brand.300');
+  const titleColor = useColorModeValue('secondaryGray.700', 'secondaryGray.200');
+  const subtitleColor = useColorModeValue('secondaryGray.500', 'secondaryGray.400');
+  const valueColor = useColorModeValue('secondaryGray.900', 'white');
 
   return (
     <Box
@@ -42,21 +47,21 @@ export default function StatsCard({ title, subtitle, value, delta, icon, sparkli
                 align="center"
                 justify="center"
                 borderRadius="10px"
-                bg={useColorModeValue('brand.50', 'whiteAlpha.100')}
+                bg={iconBg}
               >
-                <Icon as={icon} color={useColorModeValue('brand.600', 'brand.300')} w="18px" h="18px" />
+                <Icon as={icon} color={iconColor} w="18px" h="18px" />
               </Flex>
             ) : null}
-            <Text fontSize="sm" fontWeight={700} color={useColorModeValue('secondaryGray.700', 'secondaryGray.200')} isTruncated>
+            <Text fontSize="sm" fontWeight={700} color={titleColor} isTruncated>
               {title}
             </Text>
           </HStack>
           {subtitle ? (
-            <Text fontSize="xs" color={useColorModeValue('secondaryGray.500', 'secondaryGray.400')} noOfLines={2}>
+            <Text fontSize="xs" color={subtitleColor} noOfLines={2}>
               {subtitle}
             </Text>
           ) : null}
-          <Text fontSize="2xl" fontWeight={800} color={useColorModeValue('secondaryGray.900', 'white')} mt={2}>
+          <Text fontSize="2xl" fontWeight={800} color={valueColor} mt={2}>
             {value}
           </Text>
           {delta ? (

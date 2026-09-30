@@ -451,7 +451,7 @@ export const getUnifiedInvoiceById = async (id) => {
     SELECT id, invoice_number AS "invoiceNumber", user_type AS "userType", user_id AS "userId",
            invoice_type AS "invoiceType", description, amount, tax, discount, total, balance,
            status, due_date AS "dueDate", period_month AS "periodMonth", issued_at AS "issuedAt",
-           created_at AS "createdAt", updated_at AS "updatedAt"
+          created_at AS "createdAt", updated_at AS "updatedAt", campus_id AS "campusId"
     FROM finance_invoices WHERE id = $1
   `, [id]);
 
@@ -512,7 +512,7 @@ export const listUnifiedPayments = async ({ userType, userId, invoiceId, campusI
     SELECT fp.id, fp.invoice_id AS "invoiceId", fi.invoice_number AS "invoiceNumber",
            fp.user_type AS "userType", fp.user_id AS "userId",
            fp.amount, fp.method, fp.reference_number AS "referenceNumber",
-           fp.notes, fp.paid_at AS "paidAt"
+          fp.notes, fp.paid_at AS "paidAt", fp.campus_id AS "campusId"
     FROM finance_payments fp
     JOIN finance_invoices fi ON fp.invoice_id = fi.id
     ${whereSql}
@@ -584,7 +584,7 @@ export const listReceipts = async ({ userType, userId, userIds, campusId, page =
     SELECT fr.id, fr.receipt_number AS "receiptNumber", fr.payment_id AS "paymentId",
            fr.user_type AS "userType", fr.user_id AS "userId", fr.amount,
            fr.issued_at AS "issuedAt", fr.printed_at AS "printedAt",
-           fp.method AS "paymentMethod", fi.invoice_number AS "invoiceNumber"
+          fp.method AS "paymentMethod", fi.invoice_number AS "invoiceNumber", fi.campus_id AS "campusId"
     FROM finance_receipts fr
     JOIN finance_payments fp ON fr.payment_id = fp.id
     JOIN finance_invoices fi ON fp.invoice_id = fi.id
@@ -608,7 +608,7 @@ export const createReceipt = async (paymentId, createdBy = null) => {
            fr.user_type AS "userType", fr.user_id AS "userId", fr.amount,
            fr.issued_at AS "issuedAt", fr.printed_at AS "printedAt",
            fp.method AS "paymentMethod", fp.reference_number AS "referenceNumber", fp.paid_at AS "paidAt",
-           fi.invoice_number AS "invoiceNumber"
+           fi.invoice_number AS "invoiceNumber", fi.campus_id AS "campusId"
       FROM finance_receipts fr
       JOIN finance_payments fp ON fr.payment_id = fp.id
       JOIN finance_invoices fi ON fp.invoice_id = fi.id
@@ -647,7 +647,7 @@ export const createReceipt = async (paymentId, createdBy = null) => {
            fr.user_type AS "userType", fr.user_id AS "userId", fr.amount,
            fr.issued_at AS "issuedAt", fr.printed_at AS "printedAt",
            fp.method AS "paymentMethod", fp.reference_number AS "referenceNumber", fp.paid_at AS "paidAt",
-           fi.invoice_number AS "invoiceNumber"
+           fi.invoice_number AS "invoiceNumber", fi.campus_id AS "campusId"
       FROM finance_receipts fr
       JOIN finance_payments fp ON fr.payment_id = fp.id
       JOIN finance_invoices fi ON fp.invoice_id = fi.id
@@ -686,7 +686,7 @@ export const getOutstandingFees = async ({ userType, userIds, campusId, page = 1
   const { rows } = await query(`
     SELECT id, invoice_number AS "invoiceNumber", user_type AS "userType", user_id AS "userId",
            invoice_type AS "invoiceType", total, balance, status, due_date AS "dueDate",
-           issued_at AS "issuedAt",
+          issued_at AS "issuedAt", campus_id AS "campusId",
            CASE WHEN due_date < CURRENT_DATE THEN CURRENT_DATE - due_date ELSE 0 END AS "daysOverdue"
     FROM finance_invoices
     ${whereSql}
@@ -720,7 +720,7 @@ export const getPayrollSummary = async ({ role, periodMonth, status, campusId, p
     const tWhereSql = tWhere.length ? `WHERE ${tWhere.join(' AND ')}` : '';
 
     const { rows: teacherRows } = await query(`
-      SELECT tp.id, 'teacher' AS role, tp.teacher_id AS "userId", t.name AS "userName",
+      SELECT tp.id, 'teacher' AS role, tp.teacher_id AS "userId", t.name AS "userName", t.campus_id AS "campusId",
              tp.period_month AS "periodMonth", tp.base_salary AS "baseSalary",
              tp.allowances, tp.deductions, tp.bonuses, tp.total_amount AS "totalAmount",
              tp.status, tp.paid_on AS "paidOn",
@@ -749,7 +749,7 @@ export const getPayrollSummary = async ({ role, periodMonth, status, campusId, p
     const dWhereSql = dWhere.length ? `WHERE ${dWhere.join(' AND ')}` : '';
 
     const { rows: driverRows } = await query(`
-      SELECT dp.id, 'driver' AS role, dp.driver_id AS "userId", d.name AS "userName",
+      SELECT dp.id, 'driver' AS role, dp.driver_id AS "userId", d.name AS "userName", d.campus_id AS "campusId",
              dp.period_month AS "periodMonth", dp.base_salary AS "baseSalary",
              dp.allowances, dp.deductions, dp.bonuses, dp.total_amount AS "totalAmount",
              dp.status, dp.paid_on AS "paidOn",

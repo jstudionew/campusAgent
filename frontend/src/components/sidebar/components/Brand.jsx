@@ -15,6 +15,9 @@ export function SidebarBrand() {
   const isCollapsed = !!toggleSidebar;
   const logoSrc = `/CAlogo.jfif`;
   const iconColor = useColorModeValue("secondaryGray.600", "secondaryGray.300");
+  const toggleBg = useColorModeValue('white', 'navy.800');
+  const toggleBorderColor = useColorModeValue('secondaryGray.200', 'whiteAlpha.200');
+  const toggleHoverBg = useColorModeValue('brand.50', 'whiteAlpha.200');
   const tooltipLabel = isCollapsed ? "Expand sidebar" : "Collapse sidebar";
   const ToggleIcon = isCollapsed ? MdKeyboardDoubleArrowRight : MdKeyboardDoubleArrowLeft;
 
@@ -86,12 +89,12 @@ export function SidebarBrand() {
               borderRadius='full'
               icon={<ToggleIcon size={18} />}
               color={iconColor}
-              bg={useColorModeValue('white', 'navy.800')}
+              bg={toggleBg}
               borderWidth='1px'
-              borderColor={useColorModeValue('secondaryGray.200', 'whiteAlpha.200')}
+              borderColor={toggleBorderColor}
               transition='all 0.2s ease'
               _hover={{
-                bg: useColorModeValue('brand.50', 'whiteAlpha.200'),
+                bg: toggleHoverBg,
                 color: 'brand.500',
                 borderColor: 'brand.300',
                 transform: 'translateY(-50%) scale(1.08)',

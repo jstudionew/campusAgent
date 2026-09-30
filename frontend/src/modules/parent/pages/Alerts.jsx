@@ -1,11 +1,14 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Flex, Heading, Text, Badge, VStack, HStack, Button, Icon, useToast } from '@chakra-ui/react';
+import { Box, Flex, Heading, Text, Badge, VStack, HStack, Button, Icon, useToast, useColorModeValue } from '@chakra-ui/react';
 import { MdNotificationsActive, MdRefresh } from 'react-icons/md';
 import Card from '../../../components/card/Card';
 import { alertsApi } from '../../../services/api';
 
 export default function ParentAlerts() {
   const toast = useToast();
+  const textColor = useColorModeValue('gray.800', 'white');
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const alertBg = useColorModeValue('white', 'gray.800');
   const [loading, setLoading] = useState(false);
   const [rows, setRows] = useState([]);
 
@@ -31,7 +34,7 @@ export default function ParentAlerts() {
       <Flex mb={5} justify="space-between" align="center">
         <Box>
           <Heading as="h3" size="lg" mb={1}>Alerts</Heading>
-          <Text color="gray.500">Messages and notifications from your school</Text>
+          <Text color={textColorSecondary}>Messages and notifications from your school</Text>
         </Box>
         <Button leftIcon={<MdRefresh />} onClick={load} isLoading={loading} variant="outline">Refresh</Button>
       </Flex>
@@ -39,20 +42,20 @@ export default function ParentAlerts() {
       <Card p={4}>
         <VStack align="stretch" spacing={3}>
           {rows.length === 0 && (
-            <Flex align="center" justify="center" p={10} direction="column" color="gray.500">
+            <Flex align="center" justify="center" p={10} direction="column" color={textColorSecondary}>
               <Icon as={MdNotificationsActive} boxSize={8} mb={2} />
               <Text>No alerts yet.</Text>
             </Flex>
           )}
           {rows.map((a) => (
-            <Flex key={a.id} p={3} borderWidth="1px" borderRadius="md" align="start" justify="space-between" bg="white">
+            <Flex key={a.id} p={3} borderWidth="1px" borderRadius="md" align="start" justify="space-between" bg={alertBg}>
               <Box>
                 <HStack mb={1} spacing={2}>
                   <Badge colorScheme={colorFor(a.severity)} textTransform="capitalize">{a.severity || 'info'}</Badge>
-                  <Text fontSize="xs" color="gray.500">{new Date(a.created_at || a.createdAt || a.createdAtUtc || Date.now()).toLocaleString()}</Text>
+                  <Text fontSize="xs" color={textColorSecondary}>{new Date(a.created_at || a.createdAt || a.createdAtUtc || Date.now()).toLocaleString()}</Text>
                 </HStack>
-                <Text fontWeight="600">{a.title || a.type || 'School Alert'}</Text>
-                <Text color="gray.700">{a.message}</Text>
+                <Text fontWeight="600" color={textColor}>{a.title || a.type || 'School Alert'}</Text>
+                <Text color={textColorSecondary}>{a.message}</Text>
               </Box>
             </Flex>
           ))}

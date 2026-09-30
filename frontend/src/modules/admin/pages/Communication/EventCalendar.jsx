@@ -69,7 +69,7 @@ export default function EventCalendar() {
             </Thead>
             <Tbody>
               {rows.map((e) => (
-                <Tr key={e.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={e.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Text fontWeight='600'>{e.id}</Text></Td>
                   <Td>{e.title}</Td>
                   <Td><Text color={textColorSecondary}>{e.date}</Text></Td>

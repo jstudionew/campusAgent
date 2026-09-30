@@ -9,6 +9,7 @@ import {
   HStack,
   Icon,
   IconButton,
+  useColorModeValue,
 } from '@chakra-ui/react';
 import { ChevronLeftIcon, ChevronRightIcon } from '@chakra-ui/icons';
 import { MdCheck, MdClose, MdEventBusy } from 'react-icons/md';
@@ -17,14 +18,36 @@ const AttendanceCalendar = ({ studentId, month, attendanceData, onDateSelect }) 
   const [calendarDays, setCalendarDays] = useState([]);
   const [currentMonth, setCurrentMonth] = useState(month || new Date());
   const [selectedDate, setSelectedDate] = useState(null);
-  
+  const weekDayColor = useColorModeValue('gray.600', 'gray.300');
+  const defaultDayColor = useColorModeValue('gray.800', 'gray.100');
+
   // Colors for attendance status
   const statusColors = {
-    present: { bg: 'green.50', text: 'green.600', border: 'green.200' },
-    absent: { bg: 'red.50', text: 'red.600', border: 'red.200' },
-    late: { bg: 'orange.50', text: 'orange.600', border: 'orange.200' },
-    leave: { bg: 'yellow.50', text: 'yellow.600', border: 'yellow.200' },
-    'not-marked': { bg: 'gray.50', text: 'gray.600', border: 'gray.200' },
+    present: {
+      bg: useColorModeValue('green.50', 'green.900'),
+      text: useColorModeValue('green.700', 'green.100'),
+      border: useColorModeValue('green.200', 'green.700'),
+    },
+    absent: {
+      bg: useColorModeValue('red.50', 'red.900'),
+      text: useColorModeValue('red.700', 'red.100'),
+      border: useColorModeValue('red.200', 'red.700'),
+    },
+    late: {
+      bg: useColorModeValue('orange.50', 'orange.900'),
+      text: useColorModeValue('orange.700', 'orange.100'),
+      border: useColorModeValue('orange.200', 'orange.700'),
+    },
+    leave: {
+      bg: useColorModeValue('yellow.50', 'yellow.900'),
+      text: useColorModeValue('yellow.800', 'yellow.100'),
+      border: useColorModeValue('yellow.200', 'yellow.700'),
+    },
+    'not-marked': {
+      bg: useColorModeValue('gray.50', 'gray.700'),
+      text: useColorModeValue('gray.700', 'gray.100'),
+      border: useColorModeValue('gray.200', 'gray.600'),
+    },
   };
 
   // Generate calendar days
@@ -161,7 +184,7 @@ const AttendanceCalendar = ({ studentId, month, attendanceData, onDateSelect }) 
       <Grid templateColumns="repeat(7, 1fr)" mb={2}>
         {weekDays.map((day, index) => (
           <GridItem key={index}>
-            <Center py={2} fontWeight="medium" color="gray.600">
+            <Center py={2} fontWeight="medium" color={weekDayColor}>
               {day}
             </Center>
           </GridItem>
@@ -188,6 +211,7 @@ const AttendanceCalendar = ({ studentId, month, attendanceData, onDateSelect }) 
                   borderColor={isSelected ? 'blue.500' : isToday ? 'blue.300' : 'transparent'}
                   borderRadius="md"
                   bg={statusColor ? statusColor.bg : 'transparent'}
+                  color={statusColor ? statusColor.text : defaultDayColor}
                   cursor="pointer"
                   onClick={() => handleDateClick(day)}
                   position="relative"
@@ -204,7 +228,7 @@ const AttendanceCalendar = ({ studentId, month, attendanceData, onDateSelect }) 
                   )}
                   
                   {day.checkIn && (
-                    <Text fontSize="xs" mt={1} color={statusColor ? statusColor.text : 'gray.500'}>
+                    <Text fontSize="xs" mt={1} color={statusColor ? statusColor.text : defaultDayColor}>
                       {day.checkIn.substring(0, 5)}
                     </Text>
                   )}

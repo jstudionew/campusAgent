@@ -47,6 +47,9 @@ export default function Messages() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
   const cardBg = useColorModeValue('white', 'gray.800');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
+  const activeConversationBg = useColorModeValue('gray.100', 'whiteAlpha.200');
+  const ownMessageBg = useColorModeValue('blue.500', 'blue.400');
+  const otherMessageBg = useColorModeValue('gray.100', 'whiteAlpha.200');
 
   const [conversations, setConversations] = useState(seedConversations);
   const [activeId, setActiveId] = useState('c1');
@@ -145,7 +148,7 @@ export default function Messages() {
           </HStack>
           <VStack align='stretch' spacing={2} maxH='420px' overflowY='auto' pr='4px'>
             {filteredConvs.map(c => (
-              <HStack key={c.id} p='10px' borderRadius='10px' cursor='pointer' bg={c.id===activeId?useColorModeValue('gray.100','whiteAlpha.200'):undefined} _hover={{ bg: hoverBg }} onClick={()=>setActiveId(c.id)}>
+              <HStack key={c.id} p='10px' borderRadius='10px' cursor='pointer' bg={c.id===activeId?activeConversationBg:undefined} _hover={{ bg: hoverBg }} onClick={()=>setActiveId(c.id)}>
                 <Avatar name={c.name} size='sm' />
                 <Box flex='1'>
                   <Text fontWeight='600' fontSize='sm' noOfLines={1}>{c.name}</Text>
@@ -176,7 +179,7 @@ export default function Messages() {
           <VStack align='stretch' spacing={3} flex='1' overflowY='auto' p='12px'>
             {(messages[activeConv?.id]||[]).map(m => (
               <Flex key={m.id} justify={m.from==='You'?'flex-end':'flex-start'}>
-                <Box maxW='70%' p='10px' borderRadius='12px' bg={m.from==='You'?useColorModeValue('blue.500','blue.400'):useColorModeValue('gray.100','whiteAlpha.200')} color={m.from==='You'?'white':undefined}>
+                <Box maxW='70%' p='10px' borderRadius='12px' bg={m.from==='You'?ownMessageBg:otherMessageBg} color={m.from==='You'?'white':undefined}>
                   <Text fontSize='sm' whiteSpace='pre-wrap'>{m.text}</Text>
                   <Text fontSize='10px' opacity={0.8} mt='4px' textAlign='right'>{m.time}</Text>
                 </Box>

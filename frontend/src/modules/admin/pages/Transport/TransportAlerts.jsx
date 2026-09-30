@@ -88,7 +88,7 @@ export default function TransportAlerts() {
             </Thead>
             <Tbody>
               {filtered.map((a) => (
-                <Tr key={a.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={a.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Badge>{a.id}</Badge></Td>
                   <Td>{a.type}</Td>
                   <Td><Badge colorScheme={a.severity === 'High' ? 'red' : a.severity === 'Medium' ? 'yellow' : 'blue'}>{a.severity}</Badge></Td>

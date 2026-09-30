@@ -11,9 +11,13 @@ import IconBox from '../../../../components/icons/IconBox';
 import { UserTypeFilter } from './components/UserTypeSelector';
 import NoUsersWarning from './components/NoUsersWarning';
 import { useFinanceUsers, useOutstandingFees } from '../../../../hooks/useFinanceUsers';
+import { financeApi } from '../../../../services/financeApi';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, loadCampusForExport } from '../../../../utils/campusExports';
 
 export default function OutstandingFees() {
   const toast = useToast();
+  const { campusId } = useAuth();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const tableHeaderBg = useColorModeValue('gray.50', 'gray.800');
   const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
@@ -57,19 +61,34 @@ export default function OutstandingFees() {
     return { total, overdue, students, staff };
   }, [filtered]);
 
-  const exportCSV = () => {
-    const header = ['Invoice', 'Type', 'User', 'Total', 'Balance', 'Status', 'Due Date', 'Days Overdue'];
-    const data = filtered.map(o => [
-      o.invoiceNumber, o.userType, o.userName,
-      o.total, o.balance, o.status,
-      o.dueDate?.slice(0, 10) || '', o.daysOverdue || 0
-    ]);
-    const csv = [header, ...data].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'outstanding_fees.csv';
-    a.click();
+  const exportCSV = async () => {
+    try {
+      const exported = [];
+      let pageNumber = 1;
+      while (true) {
+        const response = await financeApi.getOutstandingFees({ userType: roleFilter !== 'all' ? roleFilter : undefined, page: pageNumber, pageSize: 200 });
+        const records = Array.isArray(response?.items) ? response.items : [];
+        exported.push(...records);
+        if (records.length < 200) break;
+        pageNumber += 1;
+      }
+      const term = search.trim().toLowerCase();
+      const rows = term ? exported.filter((item) => item.invoiceNumber?.toLowerCase().includes(term) || item.userName?.toLowerCase().includes(term)) : exported;
+      const campusIds = Array.from(new Set(rows.map((item) => item.campusId || item.campus_id || campusId).filter(Boolean)));
+      const campusRows = await Promise.all(campusIds.map((id) => loadCampusForExport(id)));
+      const campusById = new Map(campusRows.filter(Boolean).map((campus) => [String(campus.id), campus]));
+      downloadCsv({
+        filename: 'outstanding_fees.csv',
+        headers: ['Invoice ID', 'Invoice Number', 'User Type', 'User ID', 'User Name', 'Campus ID', 'Campus Name', 'Campus Logo URL', 'Total', 'Balance', 'Status', 'Due Date', 'Days Overdue'],
+        rows: rows.map((item) => {
+          const id = item.campusId || item.campus_id || campusId;
+          const campus = campusById.get(String(id));
+          return [item.id, item.invoiceNumber, item.userType, item.userId, item.userName, id, campus?.name, campus?.logoUrl, item.total, item.balance, item.status, item.dueDate?.slice(0, 10), item.daysOverdue || 0];
+        }),
+      });
+    } catch (error) {
+      toast({ title: 'Outstanding fees export failed', description: error?.message || 'Could not load current records.', status: 'error', duration: 4000 });
+    }
   };
 
   if (loading && outstanding.length === 0) {
@@ -158,7 +177,7 @@ export default function OutstandingFees() {
               </Thead>
               <Tbody>
                 {filtered.length === 0 ? (
-                  <Tr><Td colSpan={9} textAlign="center" py={8} color="gray.500">No outstanding fees found</Td></Tr>
+                  <Tr><Td colSpan={9} textAlign="center" py={8} color={textColorSecondary}>No outstanding fees found</Td></Tr>
                 ) : filtered.map((o) => (
                   <Tr key={o.id} _hover={{ bg: rowHoverBg }}>
                     <Td><Text fontWeight='600'>{o.invoiceNumber}</Text></Td>

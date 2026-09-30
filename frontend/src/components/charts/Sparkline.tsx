@@ -13,7 +13,8 @@ export type SparklineProps = {
 };
 
 export default function Sparkline({ data, height = 40, color, ariaLabel, valueFormatter, type = 'area' }: SparklineProps) {
-  const strokeColor = color || useColorModeValue('#4f46e5', '#a5b4fc');
+  const defaultStrokeColor = useColorModeValue('#4f46e5', '#a5b4fc');
+  const strokeColor = color || defaultStrokeColor;
 
   const series = useMemo(() => [{ name: 'trend', data: Array.isArray(data) ? data : [] }], [data]);
 

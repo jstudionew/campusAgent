@@ -121,7 +121,7 @@ export default function Category() {
                             ) : filteredCategories.length === 0 ? (
                                 <Tr><Td colSpan={4} textAlign="center">No categories found</Td></Tr>
                             ) : filteredCategories.map((category) => (
-                                <Tr key={category.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={category.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{category.name}</Text></Td>
                                     <Td>{category.description}</Td>
                                     <Td isNumeric><Badge colorScheme="blue">{category.productCount || 0}</Badge></Td>

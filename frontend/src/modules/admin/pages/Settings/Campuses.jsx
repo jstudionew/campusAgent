@@ -39,6 +39,7 @@ import {
     SimpleGrid,
     Portal,
     useColorModeValue,
+    Image,
 } from '@chakra-ui/react';
 import Card from 'components/card/Card.js';
 import { SearchIcon, EditIcon, DeleteIcon, AddIcon } from '@chakra-ui/icons';
@@ -49,7 +50,7 @@ import useApi from '../../../../hooks/useApi';
 const Campuses = () => {
     const [searchTerm, setSearchTerm] = useState('');
     const [editCampus, setEditCampus] = useState(null);
-    const [formData, setFormData] = useState({ name: '', address: '', phone: '', email: '', capacity: '', status: 'active' });
+    const [formData, setFormData] = useState({ name: '', address: '', phone: '', email: '', capacity: '', status: 'active', logoUrl: '' });
     const [errors, setErrors] = useState({});
     const { isOpen, onOpen, onClose } = useDisclosure();
     const toast = useToast();
@@ -80,11 +81,12 @@ const Campuses = () => {
                 phone: campus.phone ?? '',
                 email: campus.email ?? '',
                 capacity: campus.capacity ?? '',
-                status: campus.status ?? 'active'
+                status: campus.status ?? 'active',
+                logoUrl: campus.logoUrl ?? ''
             });
         } else {
             setEditCampus(null);
-            setFormData({ name: '', address: '', phone: '', email: '', capacity: '', status: 'active' });
+            setFormData({ name: '', address: '', phone: '', email: '', capacity: '', status: 'active', logoUrl: '' });
         }
         setErrors({});
         onOpen();
@@ -125,6 +127,24 @@ const Campuses = () => {
             onClose();
             fetchCampuses({ pageSize: 100 });
         }
+    };
+
+    const handleLogoChange = (event) => {
+        const file = event.target.files?.[0];
+        event.target.value = '';
+        if (!file) return;
+        if (!['image/png', 'image/jpeg', 'image/webp'].includes(file.type)) {
+            toast({ title: 'Unsupported image', description: 'Choose a PNG, JPEG, or WebP logo.', status: 'warning', duration: 3500 });
+            return;
+        }
+        if (file.size > 5 * 1024 * 1024) {
+            toast({ title: 'Image is too large', description: 'Campus logos must be 5 MB or smaller.', status: 'warning', duration: 3500 });
+            return;
+        }
+        const reader = new FileReader();
+        reader.onload = () => setFormData((prev) => ({ ...prev, logoUrl: String(reader.result || '') }));
+        reader.onerror = () => toast({ title: 'Image could not be read', status: 'error', duration: 3500 });
+        reader.readAsDataURL(file);
     };
 
     const handleDelete = async (id) => {
@@ -169,6 +189,7 @@ const Campuses = () => {
                     <Table variant='simple'>
                         <Thead>
                             <Tr>
+                                <Th>Logo</Th>
                                 <Th>Name</Th>
                                 <Th>Address</Th>
                                 <Th>Contact</Th>
@@ -180,6 +201,7 @@ const Campuses = () => {
                         <Tbody>
                             {filteredCampuses.map((c) => (
                                 <Tr key={c.id}>
+                                    <Td><Image src={c.logoUrl || undefined} alt={`${c.name} logo`} boxSize='36px' objectFit='contain' fallback={<Icon as={MdLocationCity} boxSize='30px' color='gray.400' />} /></Td>
                                     <Td fontWeight='bold'>{c.name}</Td>
                                     <Td>{c.address || '—'}</Td>
                                     <Td>
@@ -224,6 +246,17 @@ const Campuses = () => {
                     <ModalCloseButton />
                     <ModalBody>
                         <SimpleGrid columns={1} spacing={4}>
+                            <FormControl>
+                                <FormLabel>Campus Logo</FormLabel>
+                                <Flex align='center' gap={4}>
+                                    <Image src={formData.logoUrl || undefined} alt='Campus logo preview' boxSize='72px' objectFit='contain' border='1px solid' borderColor='gray.200' borderRadius='6px' p={1} fallback={<Icon as={MdLocationCity} boxSize='36px' color='gray.400' />} />
+                                    <Box>
+                                        <Input type='file' accept='image/png,image/jpeg,image/webp' onChange={handleLogoChange} p={1} />
+                                        <Text fontSize='xs' color='gray.500' mt={1}>PNG, JPEG, or WebP, up to 5 MB</Text>
+                                        {formData.logoUrl && <Button size='xs' variant='link' colorScheme='red' mt={1} onClick={() => setFormData((prev) => ({ ...prev, logoUrl: '' }))}>Remove logo</Button>}
+                                    </Box>
+                                </Flex>
+                            </FormControl>
                             <FormControl isRequired isInvalid={!!errors.name}>
                                 <FormLabel>Campus Name</FormLabel>
                                 <Input

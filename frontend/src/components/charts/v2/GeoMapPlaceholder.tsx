@@ -47,7 +47,7 @@ export default function GeoMapPlaceholder({ data, ariaLabel, onInitMap }: GeoMap
         {top.map((c) => (
           <Flex key={c.countryCode} justify="space-between" fontSize="sm">
             <Text fontWeight={700}>{c.countryName || c.countryCode}</Text>
-            <Text color={useColorModeValue('gray.600', 'gray.400')}>{c.value.toLocaleString()}</Text>
+                  <Text color={labelColor}>{c.value.toLocaleString()}</Text>
           </Flex>
         ))}
         {top.length === 0 ? <Text fontSize="sm">No geo data available.</Text> : null}

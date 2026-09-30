@@ -218,7 +218,7 @@ export const AuthProvider = ({ children }) => {
     window.addEventListener('focus', onFocus);
     document.addEventListener('visibilitychange', onVisibilityChange);
 
-    const timer = setInterval(refresh, 5 * 60 * 1000);
+    const timer = setInterval(refresh, 30 * 1000);
 
     return () => {
       window.removeEventListener('focus', onFocus);

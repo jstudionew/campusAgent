@@ -93,7 +93,7 @@ export default function ActivityLogs() {
             </Thead>
             <Tbody>
               {filtered.map((l) => (
-                <Tr key={l.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={l.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Text fontWeight='600'>{l.id}</Text></Td>
                   <Td><Text color={textColorSecondary}>{l.ts}</Text></Td>
                   <Td>{l.user}</Td>

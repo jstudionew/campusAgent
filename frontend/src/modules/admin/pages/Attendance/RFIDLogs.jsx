@@ -273,7 +273,7 @@ export default function RFIDLogs() {
             </Thead>
             <Tbody>
               {filtered.map((l) => (
-                <Tr key={l.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={l.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Badge>{l.time}</Badge></Td>
                   <Td><Text fontWeight='500'>{l.student}</Text></Td>
                   <Td><Text color={textColorSecondary}>{l.studentId}</Text></Td>

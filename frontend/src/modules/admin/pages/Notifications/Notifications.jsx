@@ -125,7 +125,7 @@ export default function Notifications() {
             </Thead>
             <Tbody>
               {filtered.map((n) => (
-                <Tr key={n.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={n.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Checkbox aria-label={`select-${n.id}`} /></Td>
                   <Td><Text fontWeight='600'>{n.id}</Text></Td>
                   <Td><Text color={textColorSecondary}>{n.ts}</Text></Td>

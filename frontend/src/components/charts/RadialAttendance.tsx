@@ -16,6 +16,7 @@ export default function RadialAttendance({ value, height = 220, label, subtitle,
   const track = useColorModeValue('#E2E8F0', '#2D3748');
   const primary = useColorModeValue('#14b8a6', '#81e6d9');
   const labelColor = useColorModeValue('#334155', '#CBD5E1');
+  const subtitleColor = useColorModeValue('gray.600', 'gray.400');
 
   const series = useMemo(() => [v], [v]);
 
@@ -42,7 +43,7 @@ export default function RadialAttendance({ value, height = 220, label, subtitle,
     <Box aria-label={ariaLabel || 'Radial'} role="img">
       <ReactApexChart options={options as any} series={series as any} type="radialBar" height={height} width="100%" />
       {subtitle ? (
-        <Text fontSize="xs" color={useColorModeValue('gray.600', 'gray.400')} mt={2}>
+        <Text fontSize="xs" color={subtitleColor} mt={2}>
           {subtitle}
         </Text>
       ) : null}

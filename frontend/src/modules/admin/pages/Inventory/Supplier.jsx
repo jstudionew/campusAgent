@@ -107,7 +107,7 @@ export default function Supplier() {
                             ) : suppliers.length === 0 ? (
                                 <Tr><Td colSpan={6} textAlign="center">No suppliers found</Td></Tr>
                             ) : suppliers.filter(s => s.name?.toLowerCase().includes(search.toLowerCase())).map((supplier) => (
-                                <Tr key={supplier.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={supplier.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{supplier.name}</Text></Td>
                                     <Td>{supplier.contact}</Td>
                                     <Td>{supplier.email}</Td>

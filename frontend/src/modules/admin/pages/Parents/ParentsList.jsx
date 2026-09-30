@@ -127,7 +127,7 @@ export default function ParentsList() {
               </Thead>
               <Tbody>
                 {(rows || []).map((p) => (
-                  <Tr key={p.id} _hover={{ bg: 'gray.50' }}>
+                  <Tr key={p.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                     <Td><Badge colorScheme="blue">{p.familyNumber}</Badge></Td>
                     <Td>{p.primaryName || p.fatherName || p.motherName || '—'}</Td>
                     <Td>{p.whatsappPhone || '—'}</Td>

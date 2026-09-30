@@ -139,7 +139,7 @@ export default function AdminDailyAttendance() {
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       <Text fontSize='2xl' fontWeight='bold' mb='6px'>Daily Attendance</Text>
-      <Text fontSize='md' color='gray.500' mb='16px'>Filter by class/section, mark statuses, and save.</Text>
+      <Text fontSize='md' color='gray.600' _dark={{ color: 'gray.400' }} mb='16px'>Filter by class/section, mark statuses, and save.</Text>
 
       <Card p='16px' mb='16px'>
         <SimpleGrid columns={{ base: 1, md: 2, lg: 4 }} gap="20px" mb="20px">
@@ -197,7 +197,7 @@ export default function AdminDailyAttendance() {
         <Flex justify='space-between' align='center' p='12px' borderBottom='1px solid' borderColor='gray.100'>
           <Text fontWeight='600'>Students</Text>
           <HStack>
-            <Text fontSize='sm' color='gray.500'>{items.length} found</Text>
+            <Text fontSize='sm' color='gray.600' _dark={{ color: 'gray.400' }}>{items.length} found</Text>
             <Button size='sm' leftIcon={<MdSave />} colorScheme='green' onClick={saveAttendance} isLoading={saving} isDisabled={items.length === 0}>Save</Button>
           </HStack>
         </Flex>
@@ -217,7 +217,7 @@ export default function AdminDailyAttendance() {
                 <Tr key={s.id}>
                   <Td>
                     <Text fontWeight='600'>{s.name}</Text>
-                    <Text fontSize='xs' color='gray.500'>{s.email}</Text>
+                    <Text fontSize='xs' color='gray.600' _dark={{ color: 'gray.400' }}>{s.email}</Text>
                   </Td>
                   <Td>{s.rollNumber || '-'}</Td>
                   <Td>{(s.class || '-') + (s.section ? '-' + s.section : '')}</Td>
@@ -236,7 +236,7 @@ export default function AdminDailyAttendance() {
               {items.length === 0 && (
                 <Tr>
                   <Td colSpan={5}>
-                    <Box p='12px' textAlign='center' color='gray.500'>{loading ? 'Loading...' : 'No students found.'}</Box>
+                    <Box p='12px' textAlign='center' color='gray.600' _dark={{ color: 'gray.400' }}>{loading ? 'Loading...' : 'No students found.'}</Box>
                   </Td>
                 </Tr>
               )}

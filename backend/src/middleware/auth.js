@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
 import { query } from '../config/db.js';
 import * as settingsSvc from '../services/settings.service.js';
-import { DEFAULT_ROLE_PERMISSIONS } from '../services/rbac.service.js';
+import { CAMPUS_ADMIN_PERMISSIONS, DEFAULT_ROLE_PERMISSIONS, isRoleActive } from '../services/rbac.service.js';
 import { getSecret } from '../utils/jwt.js';
 
 // ─── Roles hierarchy (higher index = higher privilege) ───
@@ -25,6 +25,9 @@ export const authenticate = async (req, res, next) => {
   try {
     const secret = getSecret('JWT_SECRET', 'local-dev-access-secret-change-me');
     const payload = jwt.verify(token, secret);
+    if (payload.role !== 'owner' && payload.role !== 'superadmin' && !await isRoleActive(payload.role)) {
+      return res.status(403).json({ message: 'This role is inactive. Contact your administrator.', code: 'ROLE_INACTIVE' });
+    }
 
     const campusHeader = req.headers['x-campus-id'];
     const requestedCampusId = (async () => {
@@ -160,6 +163,7 @@ export const requireCampusAccess = () => (req, res, next) => {
 // Checks if the user's role has the required permission (e.g. 'students.view', 'finance.edit')
 // Owner and superadmin bypass permission checks
 export const getRolePermissions = async (role) => {
+  if (role === 'admin') return CAMPUS_ADMIN_PERMISSIONS;
   try {
     const item = await settingsSvc.getByKey(`perms.${role}`);
     if (item?.value) {

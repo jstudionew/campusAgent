@@ -10,8 +10,29 @@ import { useFinanceUsers, useDashboardAnalytics, useDashboardStats, useUnifiedIn
 import AreaChart from '../../../../components/charts/v2/AreaChart';
 import BarChart from '../../../../components/charts/v2/BarChart';
 import DonutChart from '../../../../components/charts/v2/DonutChart';
+import { financeApi } from '../../../../services/financeApi';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, loadCampusForExport } from '../../../../utils/campusExports';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
+
+const loadAllInvoicesForExport = async (userType) => {
+  const exported = [];
+  let pageNumber = 1;
+  let expectedTotal = Infinity;
+  while (exported.length < expectedTotal) {
+    const response = await financeApi.listUnifiedInvoices({ userType, page: pageNumber, pageSize: 200 });
+    const items = Array.isArray(response?.items) ? response.items : [];
+    expectedTotal = Number(response?.total) || items.length;
+    exported.push(...items);
+    if (!items.length || items.length < 200) break;
+    pageNumber += 1;
+  }
+  return exported;
+};
 
 export default function FeeDashboard() {
+  const { campusId } = useAuth();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const toast = useToast();
   const chartHeight = useBreakpointValue({ base: 220, sm: 240, md: 280, lg: 300, xl: 320 });
@@ -151,19 +172,56 @@ export default function FeeDashboard() {
     series: analytics?.topOutstanding?.series || [],
   }), [analytics]);
 
-  const exportCSV = () => {
-    const safeInvoices = invoices || [];
-    const header = ['Invoice', 'User Type', 'User', 'Amount', 'Status', 'Date'];
-    const data = safeInvoices.map(i => [i.invoiceNumber, i.userType, i.userName, i.total, i.status, i.issuedAt?.slice(0, 10)]);
-    const csv = [header, ...data].map(a => a.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = 'recent_invoices.csv';
-    a.click();
-    URL.revokeObjectURL(url);
-    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  const exportCSV = async () => {
+    try {
+      const exported = await loadAllInvoicesForExport(userTypeFromRoleFilter);
+      const campusIds = Array.from(new Set(exported.map((invoice) => invoice.campusId).filter(Boolean)));
+      const campusRows = await Promise.all(campusIds.map((id) => loadCampusForExport(id)));
+      const campusById = new Map(campusRows.filter(Boolean).map((campus) => [String(campus.id), campus]));
+      downloadCsv({
+        filename: 'recent_invoices.csv',
+        headers: ['Invoice ID', 'Invoice Number', 'User Type', 'User ID', 'User Name', 'Campus ID', 'Campus Name', 'Campus Logo URL', 'Amount', 'Status', 'Issued Date'],
+        rows: exported.map((invoice) => {
+          const campus = campusById.get(String(invoice.campusId || campusId));
+          return [invoice.id, invoice.invoiceNumber, invoice.userType, invoice.userId, invoice.userName, invoice.campusId || campusId, campus?.name, campus?.logoUrl, invoice.total, invoice.status, invoice.issuedAt?.slice(0, 10)];
+        }),
+      });
+      toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+    } catch (error) {
+      toast({ title: 'Export failed', description: error?.message || 'Could not load current invoices.', status: 'error', duration: 4000 });
+    }
+  };
+
+  const exportPDF = async () => {
+    try {
+      const exported = await loadAllInvoicesForExport(userTypeFromRoleFilter);
+      const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+      doc.setFontSize(16);
+      doc.text('Fee Invoice Report', 40, 40);
+      doc.setFontSize(9);
+      doc.text(`User type: ${roleFilter}  |  Generated: ${new Date().toLocaleString()}`, 40, 58);
+      autoTable(doc, {
+        startY: 72,
+        head: [['Invoice', 'Type', 'User ID', 'Name', 'Campus', 'Amount', 'Status', 'Issued']],
+        body: exported.map((invoice) => [
+          invoice.invoiceNumber || invoice.id || '',
+          invoice.userType || '',
+          invoice.userId || '',
+          invoice.userName || '',
+          invoice.campusId || campusId || '',
+          Number(invoice.total) || 0,
+          invoice.status || '',
+          invoice.issuedAt?.slice(0, 10) || '',
+        ]),
+        styles: { fontSize: 8, cellPadding: 5, overflow: 'linebreak' },
+        headStyles: { fillColor: [37, 99, 235] },
+        margin: { left: 40, right: 40 },
+      });
+      doc.save('recent_invoices.pdf');
+      toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+    } catch (error) {
+      toast({ title: 'Export failed', description: error?.message || 'Could not load current invoices.', status: 'error', duration: 4000 });
+    }
   };
 
   if (loading) {
@@ -202,7 +260,7 @@ export default function FeeDashboard() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV}>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' onClick={exportPDF}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 
@@ -424,7 +482,7 @@ export default function FeeDashboard() {
                 {invoicesLoading ? (
                   <Tr><Td colSpan={6} textAlign="center"><Spinner /></Td></Tr>
                 ) : (!invoices || invoices.length === 0) ? (
-                  <Tr><Td colSpan={6} textAlign="center" color="gray.500">No invoices found</Td></Tr>
+                  <Tr><Td colSpan={6} textAlign="center" color={textColorSecondary}>No invoices found</Td></Tr>
                 ) : invoices.map((i) => (
                   <Tr key={i.id} _hover={{ bg: invoiceRowHoverBg }}>
                     <Td><Text fontWeight='600'>{i.invoiceNumber}</Text></Td>

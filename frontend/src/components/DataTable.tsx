@@ -97,6 +97,7 @@ export default function DataTable<T>({
   const searchBg = useColorModeValue('white', 'navy.900');
   const searchBorderColor = useColorModeValue('secondaryGray.200', 'whiteAlpha.200');
   const filterBg = useColorModeValue('white', 'navy.900');
+  const emptyTextColor = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
 
   const showFilters = useMemo(() => {
     if (!filters) return false;
@@ -232,7 +233,7 @@ export default function DataTable<T>({
                             size="sm"
                             value={filters.values[c.id] ?? ''}
                             onChange={(e) => filters.onChange(c.id, e.target.value)}
-                            bg={useColorModeValue('white', 'navy.900')}
+                            bg={filterBg}
                             borderRadius="8px"
                           >
                             <option value="">{f.placeholder || 'All'}</option>
@@ -249,7 +250,7 @@ export default function DataTable<T>({
                             value={filters.values[c.id] ?? ''}
                             onChange={(e) => filters.onChange(c.id, e.target.value)}
                             placeholder={f.placeholder || 'Filter...'}
-                            bg={useColorModeValue('white', 'navy.900')}
+                            bg={filterBg}
                             borderRadius="8px"
                           />
                         )
@@ -275,7 +276,7 @@ export default function DataTable<T>({
               <Tr>
                 <Td colSpan={columns.length} borderColor={borderColor}>
                   <Box py={10} textAlign="center">
-                    <Text fontSize="sm" color={useColorModeValue('secondaryGray.600', 'secondaryGray.400')}>
+                    <Text fontSize="sm" color={emptyTextColor}>
                       {emptyText || 'No records found.'}
                     </Text>
                   </Box>

@@ -12,6 +12,7 @@ import * as teachersApi from '../../../services/api/teachers';
 export default function SubjectWiseStudents() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
   const headerBg = useColorModeValue('white', 'gray.800');
+  const studentCardBg = useColorModeValue('white', 'gray.700');
   const hoverBg = useColorModeValue('gray.50', 'whiteAlpha.100');
   const gridColor = useColorModeValue('#EDF2F7','#2D3748');
   const hoverShadow = useColorModeValue('lg', 'dark-lg');
@@ -160,7 +161,7 @@ export default function SubjectWiseStudents() {
               <Box minW='520px'>
                 <SimpleGrid columns={{ base: 1, md: 2 }} spacing='8px'>
                   {group.students.map(st => (
-                    <Flex key={st.id} p='10px' borderWidth='1px' borderRadius='10px' align='center' gap={3} bg={useColorModeValue('white','gray.700')}
+                    <Flex key={st.id} p='10px' borderWidth='1px' borderRadius='10px' align='center' gap={3} bg={studentCardBg}
                       _hover={{ boxShadow: 'md', bg: hoverBg }} cursor='pointer' onClick={()=>{ setSelected(st); setOpen(true); }}>
                       <Avatar name={st.name} size='sm' />
                       <VStack align='start' spacing={0} minW={0}>

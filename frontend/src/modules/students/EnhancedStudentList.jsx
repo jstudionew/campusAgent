@@ -122,6 +122,7 @@ const mockStats = {
 const EnhancedStudentList = () => {
   const navigate = useNavigate();
   const toast = useToast();
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const cancelRef = React.useRef();
   const { isOpen: isDeleteAlertOpen, onOpen: onOpenDeleteAlert, onClose: onCloseDeleteAlert } = useDisclosure();
   const { isOpen: isStatusAlertOpen, onOpen: onOpenStatusAlert, onClose: onCloseStatusAlert } = useDisclosure();
@@ -395,7 +396,7 @@ const EnhancedStudentList = () => {
           <Heading as="h3" size="lg" mb="4">
             Students
           </Heading>
-          <Text color="gray.500">Manage your students and their information</Text>
+          <Text color={textColorSecondary}>Manage your students and their information</Text>
         </Box>
         <Flex justify="flex-end" align="center" gap={2}>
           <StudentExportOptions students={filteredStudents} totalCount={pagination.totalItems} />

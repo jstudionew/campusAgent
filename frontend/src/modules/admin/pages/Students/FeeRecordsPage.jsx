@@ -6,7 +6,7 @@ import {
   Modal, ModalOverlay, ModalContent,
   ModalHeader, ModalFooter, ModalBody, ModalCloseButton,
   FormControl, FormLabel, Input,
-  useDisclosure, IconButton, Menu, MenuButton, MenuList, MenuItem, HStack, Portal
+  useDisclosure, IconButton, Menu, MenuButton, MenuList, MenuItem, HStack, Portal, useColorModeValue
 } from '@chakra-ui/react';
 
 import { useNavigate } from 'react-router-dom';
@@ -31,6 +31,7 @@ import { getStatusColor } from '../../../../utils/helpers';
 export default function FeeRecordsPage() {
   const toast = useToast();
   const navigate = useNavigate();
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
   const { isOpen, onOpen, onClose } = useDisclosure();
   const addModal = useDisclosure();
@@ -195,7 +196,7 @@ export default function FeeRecordsPage() {
           <Text fontSize='2xl' fontWeight='bold'>
             Fee Records
           </Text>
-          <Text fontSize='md' color='gray.500'>
+          <Text fontSize='md' color={textColorSecondary}>
             Manage student fee invoices and payments
           </Text>
         </Box>

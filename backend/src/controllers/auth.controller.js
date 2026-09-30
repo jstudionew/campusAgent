@@ -2,6 +2,7 @@ import bcrypt from 'bcryptjs';
 import { query } from '../config/db.js';
 import { signAccessToken, signRefreshToken, verifyRefreshToken } from '../utils/jwt.js';
 import * as authService from '../services/auth.service.js';
+import * as rbacService from '../services/rbac.service.js';
 import { ensureParentsSchema, ensureAuthSchema, ensureCampusSchema } from '../db/autoMigrate.js';
 import * as parentsSvc from '../services/parents.service.js';
 import * as settingsSvc from '../services/settings.service.js';
@@ -133,6 +134,14 @@ export const login = async (req, res, next) => {
         });
       }
 
+      if (ownerUser.status === 'inactive') {
+        return res.status(403).json({
+          success: false,
+          message: 'This account is inactive. Contact your administrator.',
+          code: 'ACCOUNT_INACTIVE',
+        });
+      }
+
       const userPayload = {
         id: ownerUser.id,
         email: ownerUser.email || ownerEmail,
@@ -172,6 +181,22 @@ export const login = async (req, res, next) => {
         message: 'Incorrect password. Please verify and try again.',
         field: 'password',
         code: 'INVALID_PASSWORD',
+      });
+    }
+
+    if (user.status === 'inactive') {
+      return res.status(403).json({
+        success: false,
+        message: 'This account is inactive. Contact your administrator.',
+        code: 'ACCOUNT_INACTIVE',
+      });
+    }
+
+    if (!['owner', 'superadmin'].includes(user.role) && !await rbacService.isRoleActive(user.role)) {
+      return res.status(403).json({
+        success: false,
+        message: 'This role is inactive. Contact your administrator.',
+        code: 'ROLE_INACTIVE',
       });
     }
 
@@ -224,7 +249,8 @@ export const getAllUsers = async (req, res, next) => {
           name: self.name,
           campusId: self.campus_id,
           jobTitle: self.job_title,
-          department: self.department
+          department: self.department,
+          status: self.status || 'active'
         }
         : null;
       return res.json({ rows: userPayload ? [userPayload] : [], total: userPayload ? 1 : 0, page: 1, pageSize: 1 });
@@ -266,7 +292,7 @@ export const getAllUsers = async (req, res, next) => {
 
     // Get users with job_title and department
     const { rows } = await query(
-      `SELECT id, username, email, phone, role, name, campus_id AS "campusId", job_title AS "jobTitle", department, created_at AS "createdAt"
+      `SELECT id, username, email, phone, role, name, campus_id AS "campusId", job_title AS "jobTitle", department, status, created_at AS "createdAt"
        FROM users ${whereSql}
        ORDER BY created_at DESC
        LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
@@ -283,11 +309,19 @@ export const getAllUsers = async (req, res, next) => {
 export const updateUser = async (req, res, next) => {
   try {
     const { id } = req.params;
-    const { name, username, email, phone, role, password, jobTitle, department } = req.body;
+    const { name, username, email, phone, role, password, jobTitle, department, active, campusId } = req.body;
     const requesterRole = req.user?.role;
 
     const targetUser = await authService.findUserById(id);
     if (!targetUser) return res.status(404).json({ message: 'User not found' });
+
+    if (Number(req.user.id) === Number(id) && active === false) {
+      return res.status(400).json({ message: 'Cannot deactivate your own account' });
+    }
+
+    if (campusId !== undefined && !['owner', 'superadmin'].includes(requesterRole)) {
+      return res.status(403).json({ message: 'Only Owner or Superadmin can change a user campus' });
+    }
 
     // Superadmin or admin cannot modify the owner account
     if (targetUser.role === 'owner' && requesterRole !== 'owner') {
@@ -310,6 +344,10 @@ export const updateUser = async (req, res, next) => {
       }
     }
 
+    if (role && await rbacService.isCustomRole(role) && !['owner', 'superadmin'].includes(requesterRole)) {
+      return res.status(403).json({ message: 'Only Owner or Superadmin can assign custom roles' });
+    }
+
     // Superadmin cannot promote to owner or modify owner
     if (requesterRole === 'superadmin' && role === 'owner') {
       return res.status(403).json({ message: 'Superadmin cannot assign owner role' });
@@ -318,6 +356,12 @@ export const updateUser = async (req, res, next) => {
     // Only owner/superadmin can grant admin role
     if (role === 'admin' && requesterRole !== 'owner' && requesterRole !== 'superadmin') {
       return res.status(403).json({ message: 'Forbidden' });
+    }
+
+    const updatedRole = role || targetUser.role;
+    const updatedCampusId = campusId === undefined ? targetUser.campus_id : Number(campusId) || null;
+    if (!updatedCampusId && !['owner', 'superadmin'].includes(updatedRole)) {
+      return res.status(400).json({ message: 'Campus selection is mandatory for this role' });
     }
 
     // Prevent updating self role to avoid lockout
@@ -337,7 +381,7 @@ export const updateUser = async (req, res, next) => {
       }
     }
 
-    const updates = { name, username, email, phone, role, jobTitle, department };
+    const updates = { name, username, email, phone, role, jobTitle, department, active, campusId };
     if (password && password.length >= 6) {
       updates.passwordHash = await bcrypt.hash(password, 10);
     }
@@ -405,7 +449,7 @@ export const register = async (req, res, next) => {
     // Ensure campus schema changes are applied
     try { await ensureCampusSchema(); } catch (_) { }
 
-    const { email, username, phone, password, name, role = 'student', campusId, jobTitle, department } = req.body;
+    const { email, username, phone, password, name, role = 'student', campusId, jobTitle, department, active = true } = req.body;
     const requesterRole = req.user?.role;
 
     // Determine campus:
@@ -443,11 +487,14 @@ export const register = async (req, res, next) => {
     }
 
     // Validate role is in allowed list
-    if (!authService.ALLOWED_USER_ROLES.includes(role)) {
+    if (!await authService.isAllowedUserRole(role)) {
       return res.status(400).json({
         message: `Invalid role: ${role}`,
         allowedRoles: authService.ALLOWED_USER_ROLES
       });
+    }
+    if (await rbacService.isCustomRole(role) && !['owner', 'superadmin'].includes(requesterRole)) {
+      return res.status(403).json({ message: 'Only Owner or Superadmin can assign custom roles' });
     }
 
     if (!email && !username && !phone) {
@@ -469,7 +516,8 @@ export const register = async (req, res, next) => {
       name,
       campusId: finalCampusId,
       jobTitle: jobTitle || null,
-      department: department || null
+      department: department || null,
+      active: active !== false,
     });
 
     // If this user corresponds to an existing domain record, link it
@@ -516,7 +564,8 @@ export const register = async (req, res, next) => {
       campusId: user.campus_id,
       jobTitle: user.job_title,
       department: user.department,
-      phone: user.phone
+      phone: user.phone,
+      status: user.status || 'active'
     };
 
     return res.status(201).json({ user: userPayload });

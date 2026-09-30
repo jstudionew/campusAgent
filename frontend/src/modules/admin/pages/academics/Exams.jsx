@@ -44,6 +44,9 @@ import { MdEvent, MdSchedule, MdDoneAll, MdPlaylistAdd, MdAssignment, MdFileDown
 import * as examsApi from '../../../../services/api/exams';
 import * as teacherApi from '../../../../services/api/teachers';
 import useClassOptions from '../../../../hooks/useClassOptions';
+import { downloadCsv } from '../../../../utils/campusExports';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 
 const mapExam = (e) => ({
   id: e.id,
@@ -138,6 +141,34 @@ export default function Exams() {
 
   useEffect(() => { fetchRows(); }, [fetchRows]);
 
+  const exportCSV = () => {
+    const headers = ['Exam', 'Classes', 'Start Date', 'End Date', 'Status'];
+    downloadCsv({
+      filename: 'exams.csv',
+      headers,
+      rows: data.map((exam) => [exam.name, exam.classes, exam.start, exam.end, exam.status]),
+    });
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text('Exam Schedule', 40, 40);
+    doc.setFontSize(9);
+    doc.text(`Generated: ${new Date().toLocaleString()}`, 40, 58);
+    autoTable(doc, {
+      startY: 72,
+      head: [['Exam', 'Classes', 'Start Date', 'End Date', 'Status']],
+      body: data.map((exam) => [exam.name, exam.classes, fmtDt(exam.start), fmtDt(exam.end), exam.status]),
+      styles: { fontSize: 9, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save('exams.pdf');
+    toast({ title: 'Exported successfully', status: 'success', duration: 2000 });
+  };
+
   // Load subjects and teachers for dropdowns
   useEffect(() => {
     (async () => {
@@ -219,8 +250,8 @@ export default function Exams() {
           <Text color={textColorSecondary}>Create, schedule and track exams</Text>
         </Box>
         <ButtonGroup>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!data.length}>Export CSV</Button>
+          <Button leftIcon={<MdPictureAsPdf />} colorScheme='blue' onClick={exportPDF} isDisabled={!data.length}>Export PDF</Button>
         </ButtonGroup>
       </Flex>
 

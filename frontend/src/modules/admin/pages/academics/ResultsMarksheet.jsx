@@ -61,6 +61,9 @@ export default function ResultsMarksheet() {
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.200');
+  const studentSearchBg = useColorModeValue('white', 'gray.700');
+  const studentOptionHoverBg = useColorModeValue('gray.50', 'whiteAlpha.200');
+  const tableHeaderBg = useColorModeValue('gray.50', 'gray.800');
 
   const qs = useMemo(() => new URLSearchParams(search), [search]);
   const initialStudentId = qs.get('studentId') || '';
@@ -499,7 +502,7 @@ export default function ResultsMarksheet() {
               <Box
                 position="absolute"
                 zIndex={10}
-                bg={useColorModeValue('white', 'gray.700')}
+                bg={studentSearchBg}
                 borderWidth="1px"
                 borderColor={borderColor}
                 borderRadius="8px"
@@ -513,7 +516,7 @@ export default function ResultsMarksheet() {
                     key={st.id}
                     px={3}
                     py={2}
-                    _hover={{ bg: useColorModeValue('gray.50', 'whiteAlpha.200'), cursor: 'pointer' }}
+                    _hover={{ bg: studentOptionHoverBg, cursor: 'pointer' }}
                     onClick={() => {
                       setStudent(st);
                       setStudentId(String(st.id));
@@ -560,7 +563,7 @@ export default function ResultsMarksheet() {
         <Heading size="sm" p={4} borderBottomWidth="1px" borderColor={borderColor}>Subjects</Heading>
         <Box overflowX="auto">
           <Table variant="simple" size="sm">
-            <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+            <Thead bg={tableHeaderBg}>
               <Tr>
                 <Th>Subject</Th>
                 <Th isNumeric>Marks</Th>

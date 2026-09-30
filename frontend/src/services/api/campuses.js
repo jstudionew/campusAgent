@@ -13,12 +13,16 @@ export const getById = async (id) => {
 
 export const create = async (data) => {
     const res = await http.post('/campuses', data);
-    return res?.data || res;
+    const campus = res?.data || res;
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('campus:updated'));
+    return campus;
 };
 
 export const update = async (id, data) => {
     const res = await http.put(`/campuses/${id}`, data);
-    return res?.data || res;
+    const campus = res?.data || res;
+    if (typeof window !== 'undefined') window.dispatchEvent(new Event('campus:updated'));
+    return campus;
 };
 
 export const remove = async (id) => {

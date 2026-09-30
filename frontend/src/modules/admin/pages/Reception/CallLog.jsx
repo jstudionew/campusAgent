@@ -108,7 +108,7 @@ export default function CallLog() {
                             ) : calls.length === 0 ? (
                                 <Tr><Td colSpan={7} textAlign="center">No call logs found</Td></Tr>
                             ) : calls.filter(c => c.callerName?.toLowerCase().includes(search.toLowerCase())).map((call) => (
-                                <Tr key={call.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={call.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td>{call.date}</Td>
                                     <Td>{call.time}</Td>
                                     <Td><Text fontWeight="600">{call.callerName}</Text></Td>

@@ -8,10 +8,14 @@ import LineChart from '../../../../components/charts/LineChart';
 import BarChart from '../../../../components/charts/BarChart';
 import PieChart from '../../../../components/charts/PieChart';
 import * as reportsApi from '../../../../services/api/reports';
+import * as XLSX from 'xlsx';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, escapeHtml, loadCampusForExport, openCampusPrintDocument } from '../../../../utils/campusExports';
 
 const emptySummary = { revenue: 0, refunds: 0, dues: 0, rate: 0 };
 
 export default function Reports() {
+  const { campusId } = useAuth();
   const [range, setRange] = useState('this-month');
   const [rows, setRows] = useState([]);
   const [feeHeadRows, setFeeHeadRows] = useState([]);
@@ -156,30 +160,42 @@ export default function Reports() {
     return { header, data, title: 'Overdue Fines' };
   };
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const { header, data, title } = getActiveTable();
-    const csv = [header, ...data].map(a=>a.join(',')).join('\n');
-    const blob = new Blob([csv], { type:'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`${title.replace(/\s+/g,'_').toLowerCase()}.csv`; a.click(); URL.revokeObjectURL(url);
+    const campus = await loadCampusForExport(campusId);
+    downloadCsv({
+      filename: `${title.replace(/\s+/g, '_').toLowerCase()}.csv`,
+      headers: ['Campus ID', 'Campus Name', 'Campus Logo URL', 'Report', 'Generated At', ...header],
+      rows: data.map((row) => [campus?.id || campusId, campus?.name, campus?.logoUrl, title, new Date().toISOString(), ...row]),
+    });
   };
 
-  const exportPDF = () => {
+  const exportPDF = async () => {
     const { header, data, title } = getActiveTable();
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>${title}</title>
-      <style>body{font-family:Arial,Helvetica,sans-serif;padding:24px;color:#111}h1{margin:0 0 12px;font-size:20px}
-      table{border-collapse:collapse;width:100%}th,td{border:1px solid #ccc;padding:8px;font-size:12px;text-align:left}th{background:#f5f5f5}</style>
-      </head><body><h1>${title}</h1>
-      <table><thead><tr>${header.map(h=>`<th>${h}</th>`).join('')}</tr></thead>
-      <tbody>${data.map(r=>`<tr>${r.map(c=>`<td>${c}</td>`).join('')}</tr>`).join('')}</tbody></table>
-      <script>window.onload=()=>{window.print();}</script></body></html>`;
-    const w = window.open('', '_blank'); if(!w) return; w.document.open(); w.document.write(html); w.document.close();
+    const campus = await loadCampusForExport(campusId);
+    const content = `<p><strong>Generated:</strong> ${escapeHtml(new Date().toLocaleString())}</p><table><thead><tr>${header.map((heading) => `<th>${escapeHtml(heading)}</th>`).join('')}</tr></thead><tbody>${data.map((row) => `<tr>${row.map((cell) => `<td>${escapeHtml(cell)}</td>`).join('')}</tr>`).join('')}</tbody></table>`;
+    await openCampusPrintDocument({ campusId: campus?.id || campusId, campus, title, documentId: `Campus ${campus?.id || campusId || 'All'}`, content });
   };
 
-  const exportXLS = () => {
+  const exportXLS = async () => {
     const { header, data, title } = getActiveTable();
-    const table = `<table>${['<tr>'+header.map(h=>`<th>${h}</th>`).join('')+'</tr>'].concat(data.map(r=>'<tr>'+r.map(c=>`<td>${c}</td>`).join('')+'</tr>')).join('')}</table>`;
-    const blob = new Blob([`\ufeff${table}`], { type: 'application/vnd.ms-excel' });
-    const url = URL.createObjectURL(blob); const a=document.createElement('a'); a.href=url; a.download=`${title.replace(/\s+/g,'_').toLowerCase()}.xls`; a.click(); URL.revokeObjectURL(url);
+    const campus = await loadCampusForExport(campusId);
+    const worksheet = XLSX.utils.aoa_to_sheet([
+      ['Campus ID', campus?.id || campusId || ''],
+      ['Campus Name', campus?.name || ''],
+      ['Campus Logo URL', campus?.logoUrl || ''],
+      ['Report', title],
+      ['Generated At', new Date().toISOString()],
+      ['Developed By', 'J-Studio'],
+      ['Developer Website', 'www.jstudio.tech'],
+      ['Developer Contact', '0307-7763195'],
+      [],
+      header,
+      ...data,
+    ]);
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(workbook, worksheet, 'Report');
+    XLSX.writeFile(workbook, `${title.replace(/\s+/g, '_').toLowerCase()}.xlsx`);
   };
 
   return (

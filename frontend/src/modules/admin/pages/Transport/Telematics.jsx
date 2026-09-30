@@ -63,7 +63,7 @@ export default function Telematics() {
             </Thead>
             <Tbody>
               {rows.map((t) => (
-                <Tr key={t.bus} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={t.bus} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Badge colorScheme='blue'>{t.bus}</Badge></Td>
                   <Td isNumeric>{t.avgSpeed}</Td>
                   <Td isNumeric>{t.fuel}</Td>

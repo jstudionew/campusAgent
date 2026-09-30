@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Input, InputGroup, InputLeftElement, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, Switch, CheckboxGroup, Checkbox, Stack, useToast } from '@chakra-ui/react';
+import { Box, Flex, Heading, Text, SimpleGrid, Icon, Badge, Button, ButtonGroup, useColorModeValue, Table, Thead, Tbody, Tr, Th, Td, Select, Input, InputGroup, InputLeftElement, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, FormControl, FormLabel, FormHelperText, Switch, CheckboxGroup, Checkbox, Stack, useToast } from '@chakra-ui/react';
 import { MdAdminPanelSettings, MdGroup, MdSecurity, MdFileDownload, MdAdd, MdRefresh, MdSearch } from 'react-icons/md';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
@@ -10,23 +10,30 @@ import { getSMSRoutes } from '../../../../smsRoutesConfig';
 import getTeacherRoutes from '../../../../teacherRoutes';
 import getStudentRoutes from '../../../../studentRoutes';
 import getDriverRoutes from '../../../../driverRoutes';
-
-const allPerms = ['students.view', 'students.edit', 'teachers.view', 'teachers.edit', 'finance.view', 'finance.edit', 'transport.view', 'transport.edit', 'attendance.view', 'attendance.edit', 'attendance.export', 'reports.view', 'reports.export', 'communication.send', 'settings.manage'];
+import { downloadCsv } from '../../../../utils/campusExports';
 
 export default function RoleManagement() {
   const [search, setSearch] = useState('');
   const [status, setStatus] = useState('all');
   const [selected, setSelected] = useState(null);
+  const [editedPermissions, setEditedPermissions] = useState([]);
+  const [isSavingRole, setIsSavingRole] = useState(false);
   const [roles, setRoles] = useState([]);
+  const [allPerms, setAllPerms] = useState([]);
   const [permAssignments, setPermAssignments] = useState({});
   const [moduleAssignments, setModuleAssignments] = useState({});
   const [moduleDefs, setModuleDefs] = useState([]);
   const [selectedRole, setSelectedRole] = useState('teacher');
   const [allowModules, setAllowModules] = useState(new Set());
   const [allowSubroutes, setAllowSubroutes] = useState(new Set());
+  const [newRoleName, setNewRoleName] = useState('');
+  const [newRoleActive, setNewRoleActive] = useState(true);
+  const [newRolePermissions, setNewRolePermissions] = useState(['students.view', 'reports.view']);
+  const [isCreatingRole, setIsCreatingRole] = useState(false);
   const createDisc = useDisclosure();
   const editDisc = useDisclosure();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
+  const rowHoverBg = useColorModeValue('gray.50', 'gray.700');
   const toast = useToast();
 
   const buildModuleDefs = (roleId) => {
@@ -36,6 +43,9 @@ export default function RoleManagement() {
       let routes = [];
       let layout = null;
       if (r === 'admin' || r === 'owner') {
+        routes = getSMSRoutes();
+        layout = '/admin';
+      } else if (r.startsWith('custom_')) {
         routes = getSMSRoutes();
         layout = '/admin';
       } else if (r === 'teacher') {
@@ -107,6 +117,7 @@ export default function RoleManagement() {
       try {
         const perms = await rbacApi.getPermissions();
         setPermAssignments(perms?.assignments || {});
+        setAllPerms(Array.isArray(perms?.allPerms) ? perms.allPerms : []);
       } catch (_) { }
       try {
         const mods = await rbacApi.getModules();
@@ -214,6 +225,92 @@ export default function RoleManagement() {
     return bySearch && byStatus;
   }), [roles, search, status]);
 
+  const exportCSV = () => downloadCsv({
+    filename: 'roles.csv',
+    headers: ['Role ID', 'Role', 'Users', 'Permissions', 'Status'],
+    rows: filtered.map((role) => [role.id, role.name || role.id, role.users || 0, (permAssignments?.[role.id] || []).length, role.active ? 'Active' : 'Inactive']),
+  });
+
+  const resetCreateRole = () => {
+    setNewRoleName('');
+    setNewRoleActive(true);
+    setNewRolePermissions(['students.view', 'reports.view']);
+    createDisc.onClose();
+  };
+
+  const submitCreateRole = async () => {
+    const name = newRoleName.trim();
+    if (!name) return;
+    try {
+      setIsCreatingRole(true);
+      const created = await rbacApi.createRole({
+        name,
+        permissions: newRolePermissions,
+        active: newRoleActive,
+      });
+      setRoles((current) => [...current, created]);
+      setPermAssignments((current) => ({ ...current, [created.id]: newRolePermissions }));
+      setSelectedRole(created.id);
+      try {
+        const moduleResponse = await rbacApi.getModules();
+        setModuleAssignments(moduleResponse?.assignments || {});
+      } catch (_) { }
+      toast({ title: 'Role created', status: 'success', duration: 2500, isClosable: true });
+      resetCreateRole();
+    } catch (error) {
+      toast({
+        title: 'Role creation failed',
+        description: error?.data?.message || error?.message || 'Could not create this role.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setIsCreatingRole(false);
+    }
+  };
+
+  const openEditRole = (role) => {
+    setSelected(role);
+    setEditedPermissions(permAssignments?.[role.id] || []);
+    editDisc.onOpen();
+  };
+
+  const saveSelectedRole = async () => {
+    if (!selected) return;
+    const permissionsProtected = ['owner', 'superadmin', 'admin'].includes(selected.id);
+    try {
+      setIsSavingRole(true);
+      if (!permissionsProtected) {
+        await rbacApi.setPermissions(selected.id, editedPermissions);
+      }
+      if (!['owner', 'superadmin'].includes(selected.id)) {
+        await rbacApi.setRoleActive(selected.id, selected.active);
+      }
+      const [rolesResponse, permissionsResponse, modulesResponse] = await Promise.all([
+        rbacApi.getRoles(),
+        rbacApi.getPermissions(),
+        rbacApi.getModules(),
+      ]);
+      setRoles(Array.isArray(rolesResponse?.items) ? rolesResponse.items : []);
+      setPermAssignments(permissionsResponse?.assignments || {});
+      setAllPerms(Array.isArray(permissionsResponse?.allPerms) ? permissionsResponse.allPerms : []);
+      setModuleAssignments(modulesResponse?.assignments || {});
+      toast({ title: 'Role updated', status: 'success', duration: 2500, isClosable: true });
+      editDisc.onClose();
+    } catch (error) {
+      toast({
+        title: 'Role update failed',
+        description: error?.data?.message || error?.message || 'Could not save role changes.',
+        status: 'error',
+        duration: 4000,
+        isClosable: true,
+      });
+    } finally {
+      setIsSavingRole(false);
+    }
+  };
+
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
       <Flex mb={5} justify="space-between" align="center">
@@ -223,7 +320,7 @@ export default function RoleManagement() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()}>Refresh</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!filtered.length}>Export CSV</Button>
           <Button leftIcon={<MdAdd />} colorScheme='blue' onClick={createDisc.onOpen}>New Role</Button>
         </ButtonGroup>
       </Flex>
@@ -264,7 +361,7 @@ export default function RoleManagement() {
             </Thead>
             <Tbody>
               {filtered.map((r) => (
-                <Tr key={r.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={r.id} _hover={{ bg: rowHoverBg }}>
                   <Td><Text fontWeight='600'>{r.name}</Text></Td>
                   <Td isNumeric>{r.users}</Td>
                   <Td isNumeric>{(permAssignments?.[r.id] || []).length}</Td>
@@ -272,7 +369,7 @@ export default function RoleManagement() {
                     <Badge colorScheme={r.active ? 'green' : 'gray'}>{r.active ? 'Active' : 'Inactive'}</Badge>
                   </Td>
                   <Td>
-                    <Button size='sm' variant='outline' onClick={() => { setSelected(r); editDisc.onOpen(); }}>Edit</Button>
+                    <Button size='sm' variant='outline' onClick={() => openEditRole(r)}>Edit</Button>
                   </Td>
                 </Tr>
               ))}
@@ -287,7 +384,7 @@ export default function RoleManagement() {
           <Heading size='md'>Module Access</Heading>
           <Flex gap={3} align='center'>
             <Select maxW='220px' value={selectedRole} onChange={(e) => setSelectedRole(e.target.value)}>
-              {roles.filter((r) => ['owner', 'admin', 'teacher', 'student', 'driver'].includes(r.id)).map(r => (
+              {roles.filter((r) => ['owner', 'admin', 'teacher', 'student', 'driver'].includes(r.id) || r.isCustom).map(r => (
                 <option key={r.id} value={r.id}>{r.name}</option>
               ))}
             </Select>
@@ -335,8 +432,7 @@ export default function RoleManagement() {
         </SimpleGrid>
       </Card>
 
-      {/* Create Role Modal (fixed roles only) */}
-      <Modal isOpen={createDisc.isOpen} onClose={createDisc.onClose} size='lg'>
+      <Modal isOpen={createDisc.isOpen} onClose={resetCreateRole} size='lg'>
         <ModalOverlay />
         <ModalContent>
           <ModalHeader>Create Role</ModalHeader>
@@ -344,15 +440,15 @@ export default function RoleManagement() {
           <ModalBody>
             <FormControl mb={4}>
               <FormLabel>Role Name</FormLabel>
-              <Input placeholder='e.g. Librarian' />
+              <Input value={newRoleName} onChange={(e) => setNewRoleName(e.target.value)} placeholder='e.g. Librarian' maxLength={60} />
             </FormControl>
             <FormControl display='flex' alignItems='center' mb={4}>
               <FormLabel mb='0' flex='1'>Active</FormLabel>
-              <Switch defaultChecked />
+              <Switch isChecked={newRoleActive} onChange={(e) => setNewRoleActive(e.target.checked)} />
             </FormControl>
             <FormControl>
               <FormLabel>Permissions</FormLabel>
-              <CheckboxGroup defaultValue={['students.view', 'reports.view']}>
+              <CheckboxGroup value={newRolePermissions} onChange={(values) => setNewRolePermissions(values)}>
                 <Stack spacing={3} maxH='220px' overflowY='auto'>
                   {allPerms.map((p) => (
                     <Checkbox key={p} value={p}>{p}</Checkbox>
@@ -362,8 +458,8 @@ export default function RoleManagement() {
             </FormControl>
           </ModalBody>
           <ModalFooter>
-            <Button mr={3} onClick={createDisc.onClose}>Cancel</Button>
-            <Button colorScheme='blue' isDisabled>Create</Button>
+            <Button mr={3} onClick={resetCreateRole}>Cancel</Button>
+            <Button colorScheme='blue' onClick={submitCreateRole} isDisabled={!newRoleName.trim()} isLoading={isCreatingRole}>Create</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>
@@ -383,31 +479,31 @@ export default function RoleManagement() {
                 </FormControl>
                 <FormControl display='flex' alignItems='center' mb={4}>
                   <FormLabel mb='0' flex='1'>Active</FormLabel>
-                  <Switch defaultChecked={selected.active} onChange={(e) => setSelected(s => ({ ...s, active: e.target.checked }))} />
+                  <Switch isChecked={selected.active} isDisabled={['owner', 'superadmin'].includes(selected.id)} onChange={(e) => setSelected(s => ({ ...s, active: e.target.checked }))} />
                 </FormControl>
                 <FormControl>
                   <FormLabel>Permissions</FormLabel>
-                  <CheckboxGroup defaultValue={(permAssignments?.[selected.id] || [])}>
+                  <CheckboxGroup value={editedPermissions} onChange={(values) => setEditedPermissions(values)}>
                     <Stack spacing={3} maxH='220px' overflowY='auto'>
-                      {allPerms.map((p) => (
-                        <Checkbox key={p} value={p} isDisabled>{p}</Checkbox>
+                      {allPerms.map((permission) => (
+                        <Checkbox key={permission} value={permission} isDisabled={['owner', 'superadmin', 'admin'].includes(selected.id)}>{permission}</Checkbox>
                       ))}
                     </Stack>
                   </CheckboxGroup>
+                  {['owner', 'superadmin', 'admin'].includes(selected.id) && (
+                    <FormHelperText>
+                      {selected.id === 'admin'
+                        ? 'Campus Administrator permissions are fixed by the system.'
+                        : 'System-level roles have protected permissions.'}
+                    </FormHelperText>
+                  )}
                 </FormControl>
               </>
             )}
           </ModalBody>
           <ModalFooter>
-            <Button mr={3} onClick={editDisc.onClose}>Close</Button>
-            <Button colorScheme='blue' onClick={async () => {
-              try {
-                await rbacApi.setRoleActive(selected.id, selected.active);
-                const res = await rbacApi.getRoles();
-                setRoles(Array.isArray(res?.items) ? res.items : []);
-                editDisc.onClose();
-              } catch (_) { }
-            }}>Save</Button>
+            <Button mr={3} onClick={editDisc.onClose}>Cancel</Button>
+            <Button colorScheme='blue' onClick={saveSelectedRole} isLoading={isSavingRole}>Save</Button>
           </ModalFooter>
         </ModalContent>
       </Modal>

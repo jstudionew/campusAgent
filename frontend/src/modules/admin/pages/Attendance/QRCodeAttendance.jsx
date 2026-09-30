@@ -608,7 +608,7 @@ export default function AdminQRAttendance({
                                 >
                                     <Box>
                                         <Text fontWeight="bold" fontSize="sm">{p.name}</Text>
-                                        <Text fontSize="xs" color="gray.500">ID: {p.id}{p.secondary ? ` · ${p.secondary}` : ''}</Text>
+                                        <Text fontSize="xs" color={textColorSecondary}>ID: {p.id}{p.secondary ? ` · ${p.secondary}` : ''}</Text>
                                     </Box>
                                 </ListItem>
                             ))}
@@ -633,9 +633,9 @@ export default function AdminQRAttendance({
                             />
                             {!isScanning && (
                                 <Box position="absolute" textAlign="center" px={4}>
-                                    <Text color="gray.600" fontWeight="700">Click “Start Scanner” to begin</Text>
+                                    <Text color={textColorSecondary} fontWeight="700">Click “Start Scanner” to begin</Text>
                                     {!supportsBarcodeDetector && (
-                                        <Text color="gray.500" fontSize="sm" mt={1}>
+                                        <Text color={textColorSecondary} fontSize="sm" mt={1}>
                                             Your browser doesn’t support the native scanner. Using fallback scanner.
                                         </Text>
                                     )}
@@ -644,7 +644,7 @@ export default function AdminQRAttendance({
                             {isStartingCamera && (
                                 <Box position="absolute" textAlign="center">
                                     <Spinner />
-                                    <Text mt={2} color="gray.600">Starting camera…</Text>
+                                    <Text mt={2} color={textColorSecondary}>Starting camera…</Text>
                                 </Box>
                             )}
                         </>

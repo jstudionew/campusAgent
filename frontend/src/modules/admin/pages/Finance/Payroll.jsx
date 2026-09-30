@@ -17,10 +17,11 @@ import PieChart from '../../../../components/charts/PieChart';
 import UserSelector from './components/UserSelector';
 import NoUsersWarning from './components/NoUsersWarning';
 import { useFinanceUsers, usePayrollSummary } from '../../../../hooks/useFinanceUsers';
-import { driversApi } from '../../../../services/financeApi';
+import { driversApi, financeApi } from '../../../../services/financeApi';
 import * as teacherApi from '../../../../services/api/teachers';
 import { campusesApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, escapeHtml, loadCampusForExport, openCampusPrintDocument } from '../../../../utils/campusExports';
 
 export default function Payroll() {
   const toast = useToast();
@@ -36,7 +37,7 @@ export default function Payroll() {
   const [selected, setSelected] = useState(null);
   const [campusFilter, setCampusFilter] = useState('all');
   const [campuses, setCampuses] = useState([]);
-  const { user } = useAuth();
+  const { user, campusId } = useAuth();
   const isAdmin = user?.role === 'admin' || user?.role === 'owner';
 
   // Modals
@@ -241,107 +242,85 @@ export default function Payroll() {
     }
   };
 
-  const exportCSV = () => {
-    const header = ['ID', 'Month', 'Employee', 'Role', 'Basic', 'Allowances', 'Deductions', 'Bonuses', 'Net', 'Status'];
-    const data = filtered.map(r => [
-      r.id, r.periodMonth?.slice(0, 7), r.userName, r.role,
-      r.baseSalary, r.allowances, r.deductions, r.bonuses,
-      r.totalAmount, r.status
-    ]);
-    const csv = [header, ...data].map(a => a.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'payroll.csv';
-    a.click();
+  const exportCSV = async () => {
+    try {
+      const exported = [];
+      let pageNumber = 1;
+      let expectedTotal = Infinity;
+      while (exported.length < expectedTotal) {
+        const response = await financeApi.getPayrollSummary({
+          role: roleFilter !== 'all' ? roleFilter : undefined,
+          status: statusFilter !== 'all' ? statusFilter : undefined,
+          periodMonth: monthFilter || undefined,
+          campusId: campusFilter !== 'all' ? campusFilter : campusId || undefined,
+          page: pageNumber,
+          pageSize: 200,
+        });
+        const rows = Array.isArray(response?.items) ? response.items : [];
+        expectedTotal = Number(response?.total) || rows.length;
+        exported.push(...rows);
+        if (!rows.length || rows.length < 200) break;
+        pageNumber += 1;
+      }
+      const term = search.trim().toLowerCase();
+      const rows = term ? exported.filter((row) => row.userName?.toLowerCase().includes(term)) : exported;
+      const campusIds = Array.from(new Set(rows.map((row) => row.campusId).filter(Boolean)));
+      const campusRows = await Promise.all(campusIds.map((id) => loadCampusForExport(id)));
+      const campusById = new Map(campusRows.filter(Boolean).map((campus) => [String(campus.id), campus]));
+      downloadCsv({
+        filename: 'payroll.csv',
+        headers: ['Payroll ID', 'Employee ID', 'Employee', 'Role', 'Campus ID', 'Campus Name', 'Campus Logo URL', 'Month', 'Basic Salary', 'Allowances', 'Deductions', 'Bonuses', 'Net Amount', 'Status'],
+        rows: rows.map((row) => {
+          const campus = campusById.get(String(row.campusId));
+          return [row.id, row.userId, row.userName, row.role, row.campusId, campus?.name, campus?.logoUrl, row.periodMonth?.slice(0, 7), row.baseSalary, row.allowances, row.deductions, row.bonuses, row.totalAmount, row.status];
+        }),
+      });
+    } catch (error) {
+      toast({ title: 'Payroll export failed', description: error?.message || 'Could not load current payroll records.', status: 'error', duration: 4000 });
+    }
   };
 
-  const releasePayslip = (row) => {
+  const releasePayslip = async (row) => {
+    let currentRow = row;
+    try {
+      let pageNumber = 1;
+      while (true) {
+        const response = await financeApi.getPayrollSummary({ role: row?.role, page: pageNumber, pageSize: 200 });
+        const records = Array.isArray(response?.items) ? response.items : [];
+        const fresh = records.find((record) => String(record.id) === String(row?.id));
+        if (fresh) {
+          currentRow = { ...row, ...fresh };
+          break;
+        }
+        if (records.length < 200) break;
+        pageNumber += 1;
+      }
+    } catch (error) {
+      toast({ title: 'Using the loaded payroll record', description: error?.message || 'Could not refresh payroll data.', status: 'warning', duration: 3000 });
+    }
+    row = currentRow;
     const monthLabel = row?.periodMonth ? String(row.periodMonth).slice(0, 7) : '';
     const paidOn = row?.paidOn ? String(row.paidOn).slice(0, 10) : '';
     const method = row?.paymentMethod ? String(row.paymentMethod).toUpperCase() : '';
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Payslip</title>
-      <style>
-        :root{--brand:#2b6cb0;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc}
-        *{box-sizing:border-box}
-        body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);margin:0;padding:24px;color:var(--text)}
-        .sheet{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}
-        .top{padding:20px 22px;background:linear-gradient(135deg,var(--brand),#00a3ff);color:#fff}
-        .top h1{margin:0;font-size:18px;letter-spacing:.3px}
-        .top .sub{margin-top:4px;font-size:12px;opacity:.9}
-        .meta{display:flex;gap:18px;flex-wrap:wrap;padding:16px 22px;border-bottom:1px solid var(--line)}
-        .chip{min-width:180px}
-        .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-        .v{font-size:13px;font-weight:600;margin-top:2px}
-        .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;padding:16px 22px}
-        .card{border:1px solid var(--line);border-radius:12px;padding:14px}
-        .card h2{margin:0 0 10px;font-size:13px}
-        table{width:100%;border-collapse:collapse}
-        td{padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
-        td:last-child{text-align:right;font-weight:600}
-        tr:last-child td{border-bottom:none}
-        .total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-        .total .label{font-size:12px;color:var(--muted)}
-        .total .amt{font-size:18px;font-weight:800;color:var(--brand)}
-        .footer{padding:12px 22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-        @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border:none;border-radius:0}}
-      </style>
-      </head><body>
-        <div class="sheet">
-          <div class="top">
-            <h1>Salary Payslip</h1>
-            <div class="sub">Professional payroll statement</div>
-          </div>
-
-          <div class="meta">
-            <div class="chip"><div class="k">Employee</div><div class="v">${row?.userName || ''}</div></div>
-            <div class="chip"><div class="k">Role</div><div class="v">${String(row?.role || '').toUpperCase()}</div></div>
-            <div class="chip"><div class="k">Pay Period</div><div class="v">${monthLabel}</div></div>
-            <div class="chip"><div class="k">Status</div><div class="v">${String(row?.status || '').toUpperCase()}</div></div>
-            <div class="chip"><div class="k">Paid On</div><div class="v">${paidOn || '-'}</div></div>
-            <div class="chip"><div class="k">Payment Method</div><div class="v">${method || '-'}</div></div>
-          </div>
-
-          <div class="grid">
-            <div class="card">
-              <h2>Earnings & Deductions</h2>
-              <table>
-                <tr><td>Basic Salary</td><td>Rs. ${Number(row?.baseSalary || 0).toLocaleString()}</td></tr>
-                <tr><td>Allowances</td><td>Rs. ${Number(row?.allowances || 0).toLocaleString()}</td></tr>
-                <tr><td>Bonuses</td><td>Rs. ${Number(row?.bonuses || 0).toLocaleString()}</td></tr>
-                <tr><td>Deductions</td><td>- Rs. ${Number(row?.deductions || 0).toLocaleString()}</td></tr>
-              </table>
-              <div class="total">
-                <div>
-                  <div class="label">Net Salary</div>
-                </div>
-                <div class="amt">Rs. ${Number(row?.totalAmount || 0).toLocaleString()}</div>
-              </div>
-            </div>
-            <div class="card">
-              <h2>Notes</h2>
-              <div style="font-size:13px;line-height:1.45;color:var(--text)">${row?.notes ? String(row.notes) : '—'}</div>
-              <div style="margin-top:14px;font-size:12px;color:var(--muted)">
-                ${row?.transactionReference ? `Ref: ${String(row.transactionReference)}` : ''}
-              </div>
-              <div style="margin-top:8px;font-size:12px;color:var(--muted)">
-                ${(row?.paymentMethod === 'bank' || row?.paymentMethod === 'cheque') && (row?.bankName || row?.accountNumber || row?.iban || row?.accountTitle || row?.chequeNumber)
-                  ? `Bank: ${row?.bankName || '-'}  •  A/C: ${row?.accountNumber || '-'}  •  IBAN: ${row?.iban || '-'}  ${row?.chequeNumber ? ` •  Cheque: ${row.chequeNumber}` : ''}`
-                  : ''}
-              </div>
-              <div style="margin-top:14px;font-size:12px;color:var(--muted)">This document is system generated.</div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <div>Generated: ${new Date().toISOString().slice(0, 19).replace('T', ' ')}</div>
-            <div>CampusAgent · J-Studio</div>
-          </div>
-        </div>
-        <script>window.onload=()=>{window.print();}</script>
-      </body></html>`;
-    const w = window.open('', '_blank');
-    if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+    const banking = [row?.bankName, row?.accountNumber ? `A/C: ${row.accountNumber}` : '', row?.iban ? `IBAN: ${row.iban}` : '', row?.chequeNumber ? `Cheque: ${row.chequeNumber}` : ''].filter(Boolean).join(' · ');
+    const content = `<div class="meta-grid">
+      <p><strong>Payroll ID</strong><br>${escapeHtml(row?.id ?? '—')}</p>
+      <p><strong>Employee</strong><br>${escapeHtml(row?.userName || '—')}</p>
+      <p><strong>Employee ID</strong><br>${escapeHtml(row?.userId ?? '—')}</p>
+      <p><strong>Role</strong><br>${escapeHtml(row?.role || '—')}</p>
+      <p><strong>Pay Period</strong><br>${escapeHtml(monthLabel || '—')}</p>
+      <p><strong>Status</strong><br>${escapeHtml(String(row?.status || '—').toUpperCase())}</p>
+      <p><strong>Paid On</strong><br>${escapeHtml(paidOn || '—')}</p>
+      <p><strong>Payment Method</strong><br>${escapeHtml(method || '—')}</p>
+      <p><strong>Reference</strong><br>${escapeHtml(row?.transactionReference || '—')}</p>
+    </div><table><thead><tr><th>Earnings and deductions</th><th>Amount</th></tr></thead><tbody>
+      <tr><td>Basic salary</td><td>Rs. ${Number(row?.baseSalary || 0).toLocaleString()}</td></tr>
+      <tr><td>Allowances</td><td>Rs. ${Number(row?.allowances || 0).toLocaleString()}</td></tr>
+      <tr><td>Bonuses</td><td>Rs. ${Number(row?.bonuses || 0).toLocaleString()}</td></tr>
+      <tr><td>Deductions</td><td>- Rs. ${Number(row?.deductions || 0).toLocaleString()}</td></tr>
+      <tr><td><strong>Net salary</strong></td><td><strong>Rs. ${Number(row?.totalAmount || 0).toLocaleString()}</strong></td></tr>
+    </tbody></table><p><strong>Banking</strong><br>${escapeHtml(banking || '—')}</p><p><strong>Notes</strong><br>${escapeHtml(row?.notes || '—')}</p>`;
+    await openCampusPrintDocument({ campusId: row?.campusId || campusFilter || campusId, title: 'Salary Payslip', documentId: row?.id, content });
   };
 
   const handleEditOpen = (row) => {
@@ -488,9 +467,9 @@ export default function Payroll() {
             </Thead>
             <Tbody>
               {filtered.length === 0 ? (
-                <Tr><Td colSpan={9} textAlign="center" py={8} color="gray.500">No payroll records found</Td></Tr>
+                <Tr><Td colSpan={9} textAlign="center" py={8} color={textColorSecondary}>No payroll records found</Td></Tr>
               ) : filtered.map((r) => (
-                <Tr key={`${r.role}-${r.id}`} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={`${r.role}-${r.id}`} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td>{r.periodMonth?.slice(0, 7)}</Td>
                   <Td><Text fontWeight='600'>{r.userName}</Text></Td>
                   <Td><Badge colorScheme={r.role === 'teacher' ? 'blue' : 'orange'}>{r.role}</Badge></Td>

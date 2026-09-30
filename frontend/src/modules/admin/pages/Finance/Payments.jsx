@@ -14,9 +14,12 @@ import { UserTypeFilter } from './components/UserTypeSelector';
 import NoUsersWarning from './components/NoUsersWarning';
 import { useFinanceUsers, useUnifiedPayments, useUnifiedInvoices } from '../../../../hooks/useFinanceUsers';
 import { financeApi } from '../../../../services/financeApi';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, escapeHtml, loadCampusForExport, openCampusPrintDocument } from '../../../../utils/campusExports';
 
 export default function Payments() {
   const toast = useToast();
+  const { campusId } = useAuth();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
   // State
@@ -130,107 +133,53 @@ export default function Payments() {
     }
   };
 
-  const exportCSV = () => {
-    const header = ['Invoice', 'User Type', 'User', 'Amount', 'Method', 'Reference', 'Date'];
-    const data = filtered.map(p => [
-      p.invoiceNumber, p.userType, p.userName,
-      p.amount, p.method, p.referenceNumber || '',
-      p.paidAt?.slice(0, 10) || ''
-    ]);
-    const csv = [header, ...data].map(r => r.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'payments.csv';
-    a.click();
+  const exportCSV = async () => {
+    try {
+      const exported = [];
+      let pageNumber = 1;
+      while (true) {
+        const response = await financeApi.listUnifiedPayments({ userType: roleFilter !== 'all' ? roleFilter : undefined, page: pageNumber, pageSize: 200 });
+        const rows = Array.isArray(response?.items) ? response.items : [];
+        exported.push(...rows);
+        if (rows.length < 200) break;
+        pageNumber += 1;
+      }
+      const term = search.trim().toLowerCase();
+      const exportRows = term ? exported.filter((payment) => payment.invoiceNumber?.toLowerCase().includes(term) || payment.userName?.toLowerCase().includes(term)) : exported;
+      const campusIds = Array.from(new Set(exportRows.map((payment) => payment.campusId || campusId).filter(Boolean)));
+    const campusRows = await Promise.all(campusIds.map((id) => loadCampusForExport(id)));
+    const campusById = new Map(campusRows.filter(Boolean).map((campus) => [String(campus.id), campus]));
+    downloadCsv({
+      filename: 'payments.csv',
+      headers: ['Payment ID', 'Invoice ID', 'Invoice Number', 'User Type', 'User ID', 'User Name', 'Campus ID', 'Campus Name', 'Campus Logo URL', 'Amount', 'Method', 'Reference', 'Paid At'],
+      rows: exportRows.map((payment) => {
+        const id = payment.campusId || campusId;
+        const campus = campusById.get(String(id));
+        return [payment.id, payment.invoiceId, payment.invoiceNumber, payment.userType, payment.userId, payment.userName, id, campus?.name, campus?.logoUrl, payment.amount, payment.method, payment.referenceNumber, payment.paidAt?.slice(0, 10)];
+      }),
+    });
+    } catch (error) {
+      toast({ title: 'Payment export failed', description: error?.message || 'Could not load current payments.', status: 'error', duration: 4000 });
+    }
   };
 
-  const printReceipt = (receipt) => {
+  const printReceipt = async (receipt) => {
     const issuedAt = receipt?.issuedAt ? String(receipt.issuedAt).slice(0, 19).replace('T', ' ') : '';
     const paidAt = receipt?.paidAt ? String(receipt.paidAt).slice(0, 19).replace('T', ' ') : '';
     const method = receipt?.paymentMethod || 'cash';
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Receipt ${receipt?.receiptNumber || ''}</title>
-      <style>
-        :root{--brand:#0ea5e9;--text:#0f172a;--muted:#64748b;--line:#e2e8f0;--bg:#f8fafc;--ok:#16a34a}
-        *{box-sizing:border-box}
-        body{font-family:Inter,Segoe UI,Arial,sans-serif;background:var(--bg);margin:0;padding:24px;color:var(--text)}
-        .sheet{max-width:860px;margin:0 auto;background:#fff;border:1px solid var(--line);border-radius:14px;overflow:hidden;box-shadow:0 10px 30px rgba(15,23,42,.08)}
-        .top{padding:18px 22px;background:linear-gradient(135deg,var(--brand),#22c55e);color:#fff;display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
-        .top h1{margin:0;font-size:18px;letter-spacing:.3px}
-        .top .sub{margin-top:4px;font-size:12px;opacity:.92}
-        .pill{padding:6px 10px;border-radius:999px;background:rgba(255,255,255,.18);font-size:11px;white-space:nowrap}
-        .meta{display:flex;gap:18px;flex-wrap:wrap;padding:16px 22px;border-bottom:1px solid var(--line)}
-        .chip{min-width:180px}
-        .k{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.06em}
-        .v{font-size:13px;font-weight:700;margin-top:2px}
-        .grid{display:grid;grid-template-columns:1.2fr .8fr;gap:16px;padding:16px 22px}
-        .card{border:1px solid var(--line);border-radius:12px;padding:14px}
-        .card h2{margin:0 0 10px;font-size:13px}
-        table{width:100%;border-collapse:collapse}
-        td{padding:8px 0;border-bottom:1px dashed var(--line);font-size:13px}
-        td:last-child{text-align:right;font-weight:700}
-        tr:last-child td{border-bottom:none}
-        .total{display:flex;justify-content:space-between;align-items:center;margin-top:12px;padding-top:12px;border-top:1px solid var(--line)}
-        .total .label{font-size:12px;color:var(--muted)}
-        .total .amt{font-size:18px;font-weight:900;color:var(--ok)}
-        .footer{padding:12px 22px;border-top:1px solid var(--line);display:flex;justify-content:space-between;font-size:11px;color:var(--muted)}
-        @media print{body{background:#fff;padding:0}.sheet{box-shadow:none;border:none;border-radius:0}}
-      </style>
-      </head><body>
-        <div class="sheet">
-          <div class="top">
-            <div>
-              <h1>Payment Receipt</h1>
-              <div class="sub">Generated by the finance system</div>
-            </div>
-            <div class="pill">${receipt?.receiptNumber || ''}</div>
-          </div>
-
-          <div class="meta">
-            <div class="chip"><div class="k">Invoice</div><div class="v">${receipt?.invoiceNumber || '-'}</div></div>
-            <div class="chip"><div class="k">Received From</div><div class="v">${receipt?.userName || '-'}</div></div>
-            <div class="chip"><div class="k">User Type</div><div class="v">${String(receipt?.userType || '-').toUpperCase()}</div></div>
-            <div class="chip"><div class="k">Method</div><div class="v">${String(method).toUpperCase()}</div></div>
-            <div class="chip"><div class="k">Reference</div><div class="v">${receipt?.referenceNumber || '-'}</div></div>
-            <div class="chip"><div class="k">Paid At</div><div class="v">${paidAt || '-'}</div></div>
-          </div>
-
-          <div class="grid">
-            <div class="card">
-              <h2>Payment Summary</h2>
-              <table>
-                <tr><td>Amount Received</td><td>Rs. ${Number(receipt?.amount || 0).toLocaleString()}</td></tr>
-              </table>
-              <div class="total">
-                <div>
-                  <div class="label">Total Received</div>
-                </div>
-                <div class="amt">Rs. ${Number(receipt?.amount || 0).toLocaleString()}</div>
-              </div>
-            </div>
-            <div class="card">
-              <h2>Receipt Info</h2>
-              <table>
-                <tr><td>Issued At</td><td>${issuedAt || '-'}</td></tr>
-                <tr><td>Receipt ID</td><td>${receipt?.id || '-'}</td></tr>
-              </table>
-              <div style="margin-top:14px;font-size:12px;color:var(--muted)">This receipt is system generated.</div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <div>Printed: ${new Date().toISOString().slice(0, 19).replace('T', ' ')}</div>
-            <div>CampusAgent · J-Studio</div>
-          </div>
-        </div>
-        <script>window.onload=()=>{window.print();}</script>
-      </body></html>`;
-    const w = window.open('', '_blank');
-    if (w) {
-      w.document.open();
-      w.document.write(html);
-      w.document.close();
-    }
+    const content = `<div class="meta-grid">
+      <p><strong>Receipt ID</strong><br>${escapeHtml(receipt?.id ?? '—')}</p>
+      <p><strong>Receipt Number</strong><br>${escapeHtml(receipt?.receiptNumber || '—')}</p>
+      <p><strong>Invoice</strong><br>${escapeHtml(receipt?.invoiceNumber || '—')}</p>
+      <p><strong>Payment ID</strong><br>${escapeHtml(receipt?.paymentId ?? '—')}</p>
+      <p><strong>Received From</strong><br>${escapeHtml(receipt?.userName || '—')} (ID ${escapeHtml(receipt?.userId ?? '—')})</p>
+      <p><strong>User Type</strong><br>${escapeHtml(receipt?.userType || '—')}</p>
+      <p><strong>Method</strong><br>${escapeHtml(String(method).toUpperCase())}</p>
+      <p><strong>Reference</strong><br>${escapeHtml(receipt?.referenceNumber || '—')}</p>
+      <p><strong>Paid At</strong><br>${escapeHtml(paidAt || '—')}</p>
+      <p><strong>Issued At</strong><br>${escapeHtml(issuedAt || '—')}</p>
+    </div><table><thead><tr><th>Payment</th><th>Amount</th></tr></thead><tbody><tr><td>Amount Received</td><td>Rs. ${Number(receipt?.amount || 0).toLocaleString()}</td></tr></tbody></table>`;
+    await openCampusPrintDocument({ campusId: receipt?.campusId || campusId, title: 'Payment Receipt', documentId: receipt?.receiptNumber || receipt?.id, content });
   };
 
   const generateReceipt = async (payment) => {
@@ -331,9 +280,9 @@ export default function Payments() {
               </Thead>
               <Tbody>
                 {filtered.length === 0 ? (
-                  <Tr><Td colSpan={8} textAlign="center" py={8} color="gray.500">No payments found</Td></Tr>
+                  <Tr><Td colSpan={8} textAlign="center" py={8} color={textColorSecondary}>No payments found</Td></Tr>
                 ) : filtered.map((p) => (
-                  <Tr key={p.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={p.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                     <Td><Text fontWeight='600'>{p.invoiceNumber}</Text></Td>
                     <Td>
                       <Badge colorScheme={p.userType === 'student' ? 'blue' : p.userType === 'teacher' ? 'green' : 'orange'}>

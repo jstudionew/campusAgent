@@ -151,7 +151,7 @@ export default function IdCardTemplate() {
                             ) : templates.length === 0 ? (
                                 <Tr><Td colSpan={6} textAlign="center">No templates found</Td></Tr>
                             ) : templates.filter(t => t.name?.toLowerCase().includes(search.toLowerCase())).map((template) => (
-                                <Tr key={template.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={template.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{template.name}</Text></Td>
                                     <Td>{template.type}</Td>
                                     <Td>{template.layout}</Td>

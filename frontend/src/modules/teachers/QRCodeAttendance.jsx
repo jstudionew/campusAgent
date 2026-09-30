@@ -272,9 +272,9 @@ export default function TeacherQRAttendance() {
                             />
                             {!isScanning && (
                                 <Box position="absolute" textAlign="center" px={4}>
-                                    <Text color="gray.600" fontWeight="700">Click “Start Scanner” to begin</Text>
+                                    <Text color={textColorSecondary} fontWeight="700">Click “Start Scanner” to begin</Text>
                                     {!supportsBarcodeDetector && (
-                                        <Text color="gray.500" fontSize="sm" mt={1}>
+                                        <Text color={textColorSecondary} fontSize="sm" mt={1}>
                                             Using fallback scanner for this browser.
                                         </Text>
                                     )}
@@ -283,7 +283,7 @@ export default function TeacherQRAttendance() {
                             {isStartingCamera && (
                                 <Box position="absolute" textAlign="center">
                                     <Spinner />
-                                    <Text mt={2} color="gray.600">Starting camera…</Text>
+                                    <Text mt={2} color={textColorSecondary}>Starting camera…</Text>
                                 </Box>
                             )}
                         </>

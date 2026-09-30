@@ -143,7 +143,7 @@ export default function Purchase() {
                             ) : purchases.length === 0 ? (
                                 <Tr><Td colSpan={8} textAlign="center">No purchases found</Td></Tr>
                             ) : purchases.filter(p => getProductName(p.productId).toLowerCase().includes(search.toLowerCase()) || getSupplierName(p.supplierId).toLowerCase().includes(search.toLowerCase())).map((purchase) => (
-                                <Tr key={purchase.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={purchase.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td>{new Date(purchase.date).toLocaleDateString()}</Td>
                                     <Td>{getSupplierName(purchase.supplierId)}</Td>
                                     <Td><Text fontWeight="600">{getProductName(purchase.productId)}</Text></Td>

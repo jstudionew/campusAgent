@@ -55,7 +55,6 @@ import {
   selectPagination,
   selectSelectedStudents,
   areAllStudentsSelected,
-  isStudentSelected,
 } from '../../redux/features/students/studentSlice';
 import { SearchIcon } from '@chakra-ui/icons';
 import {
@@ -99,6 +98,7 @@ function StudentList() {
   const stats = useAppSelector(selectStudentStats);
   const pagination = useAppSelector(selectPagination);
   const selectedStudents = useAppSelector(selectSelectedStudents);
+  const selectedStudentIds = new Set(selectedStudents);
   const allSelected = useAppSelector(areAllStudentsSelected);
   const loading = useAppSelector(state => state.students.loading);
   const bulkActionLoading = useAppSelector(state => state.students.bulkActionLoading);
@@ -554,7 +554,7 @@ function StudentList() {
                       <Text fontSize="lg" fontWeight="medium">
                         No students found
                       </Text>
-                      <Text color="gray.500">
+                      <Text color={textColorSecondary}>
                         {filterValues.searchTerm || filterValues.class !== 'all' 
                           ? "Try adjusting your search or filters" 
                           : "Start by adding a new student"}
@@ -574,10 +574,10 @@ function StudentList() {
                 </Tr>
               ) : (
                 paginatedStudents.map((student) => (
-                  <Tr key={student.id} _hover={{ bg: 'gray.50' }}>
+                  <Tr key={student.id} _hover={bgHover}>
                     <Td px="6px">
                       <Checkbox
-                        isChecked={useAppSelector(state => isStudentSelected(state, student.id))}
+                        isChecked={selectedStudentIds.has(student.id)}
                         onChange={() => handleSelectStudent(student.id)}
                         colorScheme="brand"
                       />
@@ -594,7 +594,7 @@ function StudentList() {
                           <Text fontWeight="600" color={textColor} cursor="pointer" onClick={() => goToStudentProfile(student.id)}>
                             {student.name}
                           </Text>
-                          <Text fontSize="sm" color="gray.500">
+                          <Text fontSize="sm" color={textColorSecondary}>
                             {student.email}
                           </Text>
                         </Box>
@@ -604,7 +604,7 @@ function StudentList() {
                     <Td>{student.class}</Td>
                     <Td>
                       <Text fontWeight="500">{student.parentName}</Text>
-                      <Text fontSize="sm" color="gray.500">
+                      <Text fontSize="sm" color={textColorSecondary}>
                         {student.parentPhone}
                       </Text>
                     </Td>
@@ -620,7 +620,7 @@ function StudentList() {
                         {student.feeStatus}
                       </Badge>
                       {student.feeAmount > 0 && (
-                        <Text fontSize="xs" color="gray.500">
+                        <Text fontSize="xs" color={textColorSecondary}>
                           Due: Rs. {student.feeAmount}
                         </Text>
                       )}
@@ -705,7 +705,7 @@ function StudentList() {
             align={{ base: 'center', md: 'center' }}
             justify="space-between"
           >
-            <Text color="gray.600" mb={{ base: 2, md: 0 }}>
+            <Text color={textColorSecondary} mb={{ base: 2, md: 0 }}>
               Showing {((pagination.currentPage - 1) * pagination.rowsPerPage) + 1} to{' '}
               {Math.min(pagination.currentPage * pagination.rowsPerPage, pagination.totalItems)} of{' '}
               {pagination.totalItems} students

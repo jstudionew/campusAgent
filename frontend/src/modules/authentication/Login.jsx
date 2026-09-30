@@ -44,6 +44,9 @@ function SignIn() {
   const inputBg = useColorModeValue('white', 'navy.900');
   const inputBorder = useColorModeValue('secondaryGray.200', 'whiteAlpha.200');
   const dividerColor = useColorModeValue('secondaryGray.200', 'whiteAlpha.100');
+  const accessNoticeBg = useColorModeValue('teal.50', 'rgba(13, 148, 136, 0.08)');
+  const accessNoticeBorderColor = useColorModeValue('teal.200', 'rgba(13, 148, 136, 0.2)');
+  const accessNoticeTextColor = useColorModeValue('teal.800', 'teal.200');
 
   // State
   const [show, setShow] = useState(false);
@@ -113,13 +116,13 @@ function SignIn() {
             p='2.5'
             px='3'
             borderRadius='12px'
-            bg={useColorModeValue('teal.50', 'rgba(13, 148, 136, 0.08)')}
+            bg={accessNoticeBg}
             border='1px solid'
-            borderColor={useColorModeValue('teal.200', 'rgba(13, 148, 136, 0.2)')}
+            borderColor={accessNoticeBorderColor}
           >
             <HStack spacing={2}>
               <Icon as={MdVerified} color='teal.500' boxSize='16px' />
-              <Text fontSize='xs' fontWeight='600' color={useColorModeValue('teal.800', 'teal.200')}>
+              <Text fontSize='xs' fontWeight='600' color={accessNoticeTextColor}>
                 Campus Access Active ({allowedModules.length} Modules Online)
               </Text>
             </HStack>

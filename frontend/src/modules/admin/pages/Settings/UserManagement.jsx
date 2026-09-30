@@ -11,8 +11,9 @@ import { MdPeople, MdAdminPanelSettings, MdSecurity, MdFileDownload, MdAdd, MdRe
 
 import Card from '../../../../components/card/Card';
 import StatCard from '../../../../components/card/StatCard';
-import { authApi, studentsApi, teachersApi, driversApi, parentsApi, masterDataApi, campusesApi } from '../../../../services/api';
+import { authApi, studentsApi, teachersApi, driversApi, parentsApi, masterDataApi, campusesApi, rbacApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv } from '../../../../utils/campusExports';
 
 const roleDisplayMap = {
   student: 'Student',
@@ -44,6 +45,16 @@ export default function UserManagement() {
   const [selected, setSelected] = useState(null);
   const [designations, setDesignations] = useState([]);
   const [campuses, setCampuses] = useState([]);
+  const [customRoles, setCustomRoles] = useState([]);
+  const campusNames = useMemo(
+    () => new Map(campuses.map((campus) => [String(campus.id), campus.name])),
+    [campuses]
+  );
+  const customRoleNames = useMemo(
+    () => new Map(customRoles.map((customRole) => [customRole.id, customRole.name])),
+    [customRoles]
+  );
+  const displayRole = (roleId) => roleDisplayMap[roleId] || customRoleNames.get(roleId) || roleId;
   const createDisc = useDisclosure();
   const detailDisc = useDisclosure();
   const editDisc = useDisclosure();
@@ -100,7 +111,7 @@ export default function UserManagement() {
   // Fetch users from API
   useEffect(() => {
     fetchUsers();
-  }, [role, search]);
+  }, [role, search, campusId]);
 
   // Fetch designations for dropdown
   useEffect(() => {
@@ -108,6 +119,27 @@ export default function UserManagement() {
       .then(res => setDesignations(Array.isArray(res) ? res : (res.data || [])))
       .catch(() => {});
   }, []);
+
+  useEffect(() => {
+    let active = true;
+    campusesApi.list({ pageSize: 100 })
+      .then((res) => {
+        if (active) setCampuses(Array.isArray(res?.rows) ? res.rows : []);
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, []);
+
+  useEffect(() => {
+    if (!['owner', 'superadmin'].includes(user?.role)) return undefined;
+    let active = true;
+    rbacApi.getRoles()
+      .then((response) => {
+        if (active) setCustomRoles((response?.items || []).filter((roleItem) => roleItem.isCustom));
+      })
+      .catch(() => {});
+    return () => { active = false; };
+  }, [user?.role]);
 
   // Handle entity lookup
   useEffect(() => {
@@ -205,7 +237,9 @@ export default function UserManagement() {
       role: user.role,
       jobTitle: user.jobTitle || '',
       department: user.department || '',
-      password: ''
+      password: '',
+      active: user.status !== 'inactive',
+      campusId: user.campusId ? String(user.campusId) : '',
     });
     editDisc.onOpen();
   };
@@ -241,6 +275,8 @@ export default function UserManagement() {
         role: editData.role,
         jobTitle: editData.jobTitle || undefined,
         department: editData.department || undefined,
+        active: editData.active,
+        ...(['owner', 'superadmin'].includes(user?.role) ? { campusId: editData.campusId || null } : {}),
       };
       if (editData.password && editData.password.length >= 6) {
         payload.password = editData.password;
@@ -261,7 +297,7 @@ export default function UserManagement() {
 
   const stats = useMemo(() => ({
     users: total,
-    active: users.filter(u => u.role !== 'inactive').length,
+    active: users.filter(u => u.status !== 'inactive').length,
     roles: new Set(users.map(u => u.role)).size
   }), [users, total]);
 
@@ -270,6 +306,22 @@ export default function UserManagement() {
     const bySearch = !search || u.name?.toLowerCase().includes(search.toLowerCase()) || u.email?.toLowerCase().includes(search.toLowerCase()) || u.username?.toLowerCase().includes(search.toLowerCase());
     return byRole && bySearch;
   }), [users, role, search]);
+
+  const exportCSV = () => downloadCsv({
+    filename: 'users.csv',
+    headers: ['Name', 'Username', 'Email', 'Phone', 'Role', 'Campus', 'Status', 'Job Title', 'Created'],
+    rows: filtered.map((userRow) => [
+      userRow.name,
+      userRow.username,
+      userRow.email,
+      userRow.phone,
+      displayRole(userRow.role),
+      campusNames.get(String(userRow.campusId)) || (userRow.campusId ? `Campus ${userRow.campusId}` : 'System-wide'),
+      userRow.status || 'active',
+      userRow.jobTitle,
+      userRow.createdAt ? new Date(userRow.createdAt).toLocaleDateString() : '',
+    ]),
+  });
 
   return (
     <Box pt={{ base: '130px', md: '80px', xl: '80px' }}>
@@ -280,7 +332,7 @@ export default function UserManagement() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()}>Refresh</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!filtered.length}>Export CSV</Button>
           <Button leftIcon={<MdAdd />} colorScheme='blue' onClick={createDisc.onOpen}>Add User</Button>
         </ButtonGroup>
       </Flex>
@@ -304,6 +356,9 @@ export default function UserManagement() {
             {Object.entries(roleDisplayMap).map(([key, label]) => (
               <option key={key} value={key}>{label}</option>
             ))}
+            {customRoles.map((customRole) => (
+              <option key={customRole.id} value={customRole.id}>{customRole.name}</option>
+            ))}
           </Select>
         </Flex>
       </Card>
@@ -321,6 +376,8 @@ export default function UserManagement() {
                     <Th>Email</Th>
                     <Th>Phone / WhatsApp</Th>
                   <Th>Role</Th>
+                  <Th>Campus</Th>
+                  <Th>Status</Th>
                   <Th>Job Title</Th>
                   <Th>Created</Th>
                   <Th>Actions</Th>
@@ -333,7 +390,9 @@ export default function UserManagement() {
                     <Td><Text fontFamily='mono'>{u.username || 'N/A'}</Text></Td>
                     <Td>{u.email || 'N/A'}</Td>
                     <Td>{u.phone || 'N/A'}</Td>
-                    <Td><Badge colorScheme='blue'>{roleDisplayMap[u.role] || u.role}</Badge></Td>
+                    <Td><Badge colorScheme='blue'>{displayRole(u.role)}</Badge></Td>
+                    <Td>{campusNames.get(String(u.campusId)) || (u.campusId ? `Campus ${u.campusId}` : 'System-wide')}</Td>
+                    <Td><Badge colorScheme={u.status === 'inactive' ? 'red' : 'green'}>{u.status || 'active'}</Badge></Td>
                     <Td><Text fontSize='sm'>{u.jobTitle || '—'}</Text></Td>
                     <Td><Text color={textColorSecondary}>{new Date(u.createdAt).toLocaleDateString()}</Text></Td>
                     <Td>
@@ -458,6 +517,9 @@ export default function UserManagement() {
                   if (['admin', 'superadmin'].includes(key) && !['owner', 'superadmin'].includes(user?.role)) return null;
                   return <option key={key} value={key}>{label}</option>;
                 })}
+                {customRoles.filter((customRole) => customRole.active).map((customRole) => (
+                  <option key={customRole.id} value={customRole.id}>{customRole.name}</option>
+                ))}
               </Select>
               <FormHelperText>
                 {user?.role === 'owner'
@@ -467,6 +529,21 @@ export default function UserManagement() {
                     : 'Department and end-user roles can be created'}
               </FormHelperText>
             </FormControl>
+            {['owner', 'superadmin'].includes(user?.role) && (
+              <FormControl mb={4} isRequired={formData.role !== 'superadmin'}>
+                <FormLabel>Campus</FormLabel>
+                <Select
+                  value={formData.selectedCampusId || campusId || ''}
+                  onChange={(e) => setFormData({ ...formData, selectedCampusId: e.target.value })}
+                  placeholder='Select campus'
+                >
+                  {campuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{campus.name}</option>
+                  ))}
+                </Select>
+                <FormHelperText>Admin and staff accounts are assigned to one campus.</FormHelperText>
+              </FormControl>
+            )}
             <FormControl mb={4}>
               <FormLabel>Job Title</FormLabel>
               <Input
@@ -508,7 +585,12 @@ export default function UserManagement() {
                 return;
               }
 
-              if (!campusId) {
+              const selectedCampus = formData.selectedCampusId || campusId;
+              const numericCampusId = Number(selectedCampus);
+              const campusIdToSend = Number.isFinite(numericCampusId) && numericCampusId > 0
+                ? numericCampusId
+                : undefined;
+              if (!campusIdToSend && formData.role !== 'superadmin') {
                 toast({
                   title: 'Select a campus',
                   description: 'Campus/branch is required to create a user.',
@@ -532,10 +614,6 @@ export default function UserManagement() {
 
               try {
                 setIsCreating(true);
-                const numericCampusId = Number(campusId);
-                const campusIdToSend = Number.isFinite(numericCampusId) && numericCampusId > 0
-                  ? numericCampusId
-                  : undefined;
                 await authApi.register({
                   name: formData.name,
                   username: formData.username || undefined,
@@ -546,6 +624,7 @@ export default function UserManagement() {
                   campusId: campusIdToSend,
                   jobTitle: formData.jobTitle || undefined,
                   department: formData.department || undefined,
+                  active: formData.active,
                 });
 
                 toast({
@@ -616,6 +695,9 @@ export default function UserManagement() {
                   if (['admin', 'superadmin'].includes(key) && !['owner', 'superadmin'].includes(user?.role)) return null;
                   return <option key={key} value={key}>{label}</option>;
                 })}
+                {customRoles.filter((customRole) => customRole.active || customRole.id === editData.role).map((customRole) => (
+                  <option key={customRole.id} value={customRole.id}>{customRole.name}</option>
+                ))}
               </Select>
             </FormControl>
             <FormControl mb={4}>
@@ -632,6 +714,27 @@ export default function UserManagement() {
                 placeholder='e.g. Academics, Finance, Administration'
                 value={editData.department}
                 onChange={(e) => setEditData({ ...editData, department: e.target.value })}
+              />
+            </FormControl>
+            {['owner', 'superadmin'].includes(user?.role) && (
+              <FormControl mb={4} isRequired={editData.role !== 'superadmin'}>
+                <FormLabel>Campus</FormLabel>
+                <Select
+                  value={editData.campusId}
+                  onChange={(e) => setEditData({ ...editData, campusId: e.target.value })}
+                  placeholder='Select campus'
+                >
+                  {campuses.map((campus) => (
+                    <option key={campus.id} value={campus.id}>{campus.name}</option>
+                  ))}
+                </Select>
+              </FormControl>
+            )}
+            <FormControl display='flex' alignItems='center'>
+              <FormLabel mb='0' flex='1'>Active</FormLabel>
+              <Switch
+                isChecked={editData.active}
+                onChange={(e) => setEditData({ ...editData, active: e.target.checked })}
               />
             </FormControl>
             <FormControl mb={4}>
@@ -676,7 +779,7 @@ export default function UserManagement() {
                 <Text><strong>ID:</strong> {selected.id}</Text>
                 <Text><strong>Username:</strong> {selected.username || 'N/A'}</Text>
                 <Text><strong>Email:</strong> {selected.email}</Text>
-                <Text><strong>Role:</strong> {roleDisplayMap[selected.role] || selected.role}</Text>
+                <Text><strong>Role:</strong> {displayRole(selected.role)}</Text>
                 <Text><strong>Job Title:</strong> {selected.jobTitle || 'N/A'}</Text>
                 <Text><strong>Department:</strong> {selected.department || 'N/A'}</Text>
                 <Text><strong>Status:</strong> {selected.status}</Text>

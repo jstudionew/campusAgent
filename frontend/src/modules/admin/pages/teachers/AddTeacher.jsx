@@ -42,6 +42,7 @@ import Card from 'components/card/Card.js';
 import useApi from '../../../../hooks/useApi';
 import { teachersApi, campusesApi, masterDataApi, classesApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { syncTeacherClassSections } from '../../../../utils/teacherClassSections';
 
 const createInitialFormState = () => ({
   name: '',
@@ -257,8 +258,7 @@ const AddTeacher = () => {
       duration: 5000,
       isClosable: true,
     });
-    if (!creds) resetForm();
-  }, [resetForm, toast]);
+  }, [toast]);
 
   const handleError = useCallback((error) => {
     const apiErrors = Array.isArray(error?.data?.errors) ? error.data.errors : null;
@@ -381,10 +381,17 @@ const AddTeacher = () => {
   };
 
   // Add a class to the list
-  const handleAddClass = () => {
-    if (newClass && !classes.includes(newClass)) {
-      setClasses([...classes, newClass]);
-      setNewClass('');
+  const handleAddClass = (value = newClass, clearInput = true) => {
+    const additions = String(value || '').split(',').map((entry) => entry.trim()).filter(Boolean);
+    if (additions.length) {
+      setClasses((prev) => {
+        const next = [...prev];
+        additions.forEach((entry) => {
+          if (!next.some((item) => item.toLowerCase() === entry.toLowerCase())) next.push(entry);
+        });
+        return next;
+      });
+      if (clearInput) setNewClass('');
     }
   };
 
@@ -507,7 +514,21 @@ const AddTeacher = () => {
 
     if (avatar) payload.avatar = avatar;
 
-    await createTeacher(payload);
+    const { data: createdTeacher, error } = await createTeacher(payload);
+    if (!error) {
+      try {
+        await syncTeacherClassSections({ labels: classes, campusId: formData.campusId, classesApi });
+      } catch (syncError) {
+        toast({
+          title: 'Teacher added, but class sections were not fully saved',
+          description: syncError?.message || 'Open Edit Teacher and save the class list to retry.',
+          status: 'warning',
+          duration: 7000,
+          isClosable: true,
+        });
+      }
+      if (!createdTeacher?.credentials) resetForm();
+    }
   };
 
   const copyText = async (text) => {
@@ -839,8 +860,8 @@ const AddTeacher = () => {
                     <IconButton colorScheme="green" aria-label="Add class" icon={<AddIcon />} onClick={handleAddClass} />
                   </HStack>
                   <HStack spacing={2} mt={3} flexWrap="wrap">
-                    {classSuggestions.filter(c => !classes.includes(c)).slice(0, 10).map((c, i) => (
-                      <Tag key={`sugg-cls-${i}`} variant='subtle' colorScheme='green' cursor='pointer' onClick={() => setClasses(prev => [...prev, c])}>
+                    {classSuggestions.filter(c => !classes.some((selected) => selected.toLowerCase() === c.toLowerCase())).slice(0, 10).map((c, i) => (
+                      <Tag key={`sugg-cls-${i}`} variant='subtle' colorScheme='green' cursor='pointer' onClick={() => handleAddClass(c, false)}>
                         <TagLabel>+ {c}</TagLabel>
                       </Tag>
                     ))}

@@ -139,7 +139,7 @@ export default function Events() {
                             ) : events.length === 0 ? (
                                 <Tr><Td colSpan={7} textAlign="center">No events found</Td></Tr>
                             ) : events.filter(e => e.title?.toLowerCase().includes(search.toLowerCase())).map((event) => (
-                                <Tr key={event.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={event.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td><Text fontWeight="600">{event.title}</Text></Td>
                                     <Td>{event.date}</Td>
                                     <Td>{event.category}</Td>

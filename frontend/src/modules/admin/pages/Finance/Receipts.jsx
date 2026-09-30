@@ -11,9 +11,13 @@ import IconBox from '../../../../components/icons/IconBox';
 import { UserTypeFilter } from './components/UserTypeSelector';
 import NoUsersWarning from './components/NoUsersWarning';
 import { useFinanceUsers, useReceipts } from '../../../../hooks/useFinanceUsers';
+import { financeApi } from '../../../../services/financeApi';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, escapeHtml, loadCampusForExport, openCampusPrintDocument } from '../../../../utils/campusExports';
 
 export default function Receipts() {
   const toast = useToast();
+  const { campusId } = useAuth();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
 
   // State
@@ -56,38 +60,56 @@ export default function Receipts() {
     return { total, count: filtered.length, students, teachers, drivers };
   }, [filtered]);
 
-  const exportCSV = () => {
-    const header = ['Receipt', 'Invoice', 'User Type', 'User', 'Amount', 'Method', 'Issued At'];
-    const data = filtered.map(r => [
-      r.receiptNumber, r.invoiceNumber, r.userType, r.userName,
-      r.amount, r.paymentMethod || '',
-      r.issuedAt?.slice(0, 10) || ''
-    ]);
-    const csv = [header, ...data].map(row => row.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const a = document.createElement('a');
-    a.href = URL.createObjectURL(blob);
-    a.download = 'receipts.csv';
-    a.click();
+  const exportCSV = async () => {
+    try {
+      const exported = [];
+      let pageNumber = 1;
+      while (true) {
+        const response = await financeApi.listReceipts({ userType: roleFilter !== 'all' ? roleFilter : undefined, page: pageNumber, pageSize: 200 });
+        const rows = Array.isArray(response?.items) ? response.items : [];
+        exported.push(...rows);
+        if (rows.length < 200) break;
+        pageNumber += 1;
+      }
+      const term = search.trim().toLowerCase();
+      const exportRows = term ? exported.filter((receipt) => receipt.receiptNumber?.toLowerCase().includes(term) || receipt.invoiceNumber?.toLowerCase().includes(term) || receipt.userName?.toLowerCase().includes(term)) : exported;
+      const campusIds = Array.from(new Set(exportRows.map((receipt) => receipt.campusId || campusId).filter(Boolean)));
+    const campusRows = await Promise.all(campusIds.map((id) => loadCampusForExport(id)));
+    const campusById = new Map(campusRows.filter(Boolean).map((campus) => [String(campus.id), campus]));
+    downloadCsv({
+      filename: 'receipts.csv',
+      headers: ['Receipt ID', 'Receipt Number', 'Payment ID', 'Invoice Number', 'User Type', 'User ID', 'User Name', 'Campus ID', 'Campus Name', 'Campus Logo URL', 'Amount', 'Method', 'Issued At'],
+      rows: exportRows.map((receipt) => {
+        const id = receipt.campusId || campusId;
+        const campus = campusById.get(String(id));
+        return [receipt.id, receipt.receiptNumber, receipt.paymentId, receipt.invoiceNumber, receipt.userType, receipt.userId, receipt.userName, id, campus?.name, campus?.logoUrl, receipt.amount, receipt.paymentMethod, receipt.issuedAt?.slice(0, 10)];
+      }),
+    });
+    } catch (error) {
+      toast({ title: 'Receipt export failed', description: error?.message || 'Could not load current receipts.', status: 'error', duration: 4000 });
+    }
   };
 
-  const printReceipt = (receipt) => {
-    const html = `<!doctype html><html><head><meta charset="utf-8"/><title>Receipt ${receipt.receiptNumber}</title>
-      <style>body{font-family:Arial,sans-serif;padding:24px;max-width:400px;margin:0 auto}
-      .header{text-align:center;border-bottom:2px solid #333;padding-bottom:10px;margin-bottom:20px}
-      .row{display:flex;justify-content:space-between;margin:8px 0}
-      .total{font-size:18px;font-weight:bold;border-top:2px solid #333;padding-top:10px;margin-top:20px}
-      </style></head><body>
-      <div class="header"><h2>Receipt</h2><p>${receipt.receiptNumber}</p></div>
-      <div class="row"><span>Invoice:</span><span>${receipt.invoiceNumber || 'N/A'}</span></div>
-      <div class="row"><span>User:</span><span>${receipt.userName} (${receipt.userType})</span></div>
-      <div class="row"><span>Payment Method:</span><span>${receipt.paymentMethod || 'Cash'}</span></div>
-      <div class="row"><span>Date:</span><span>${receipt.issuedAt?.slice(0, 10) || 'N/A'}</span></div>
-      <div class="row total"><span>Amount:</span><span>Rs. ${Number(receipt.amount).toLocaleString()}</span></div>
-      <script>window.onload=()=>{window.print();}</script>
-    </body></html>`;
-    const w = window.open('', '_blank');
-    if (w) { w.document.open(); w.document.write(html); w.document.close(); }
+  const printReceipt = async (receipt) => {
+    let currentReceipt = receipt;
+    if (receipt?.paymentId) {
+      try {
+        currentReceipt = { ...receipt, ...await financeApi.createReceipt(receipt.paymentId) };
+      } catch (error) {
+        toast({ title: 'Using the loaded receipt', description: error?.message || 'Could not refresh receipt data.', status: 'warning', duration: 3000 });
+      }
+    }
+    const content = `<div class="meta-grid">
+      <p><strong>Receipt ID</strong><br>${escapeHtml(currentReceipt?.id ?? '—')}</p>
+      <p><strong>Receipt Number</strong><br>${escapeHtml(currentReceipt?.receiptNumber || '—')}</p>
+      <p><strong>Payment ID</strong><br>${escapeHtml(currentReceipt?.paymentId ?? '—')}</p>
+      <p><strong>Invoice</strong><br>${escapeHtml(currentReceipt?.invoiceNumber || '—')}</p>
+      <p><strong>User</strong><br>${escapeHtml(currentReceipt?.userName || '—')} (ID ${escapeHtml(currentReceipt?.userId ?? '—')})</p>
+      <p><strong>User Type</strong><br>${escapeHtml(currentReceipt?.userType || '—')}</p>
+      <p><strong>Payment Method</strong><br>${escapeHtml(currentReceipt?.paymentMethod || 'Cash')}</p>
+      <p><strong>Date</strong><br>${escapeHtml(currentReceipt?.issuedAt?.slice(0, 10) || '—')}</p>
+    </div><table><thead><tr><th>Payment</th><th>Amount</th></tr></thead><tbody><tr><td>Amount received</td><td>Rs. ${Number(currentReceipt?.amount || 0).toLocaleString()}</td></tr></tbody></table>`;
+    await openCampusPrintDocument({ campusId: currentReceipt?.campusId || campusId, title: 'Payment Receipt', documentId: currentReceipt?.receiptNumber || currentReceipt?.id, content });
   };
 
   if (loading && receipts.length === 0) {
@@ -174,9 +196,9 @@ export default function Receipts() {
               </Thead>
               <Tbody>
                 {filtered.length === 0 ? (
-                  <Tr><Td colSpan={8} textAlign="center" py={8} color="gray.500">No receipts found</Td></Tr>
+                  <Tr><Td colSpan={8} textAlign="center" py={8} color={textColorSecondary}>No receipts found</Td></Tr>
                 ) : filtered.map((r) => (
-                  <Tr key={r.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                  <Tr key={r.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                     <Td><Text fontWeight='600'>{r.receiptNumber}</Text></Td>
                     <Td>{r.invoiceNumber || '-'}</Td>
                     <Td>

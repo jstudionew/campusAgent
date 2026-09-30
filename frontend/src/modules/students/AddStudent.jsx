@@ -327,7 +327,7 @@ function AddStudent() {
           <Heading as="h3" fontSize={{ base: 'xl', md: '2xl' }} mb="4">
             Add New Student
           </Heading>
-          <Text color="gray.500" fontSize={{ base: 'sm', md: 'md' }}>Enter student information to register</Text>
+          <Text color={textColorSecondary} fontSize={{ base: 'sm', md: 'md' }}>Enter student information to register</Text>
         </Box>
 
         <Button
@@ -425,7 +425,7 @@ function AddStudent() {
           <ModalHeader>Student Login Created</ModalHeader>
           <ModalCloseButton />
           <ModalBody>
-            <Text mb={3} color="gray.500">
+            <Text mb={3} color={textColorSecondary}>
               Share these credentials with the student. This password is shown only once.
             </Text>
             <VStack align='stretch' spacing={4}>

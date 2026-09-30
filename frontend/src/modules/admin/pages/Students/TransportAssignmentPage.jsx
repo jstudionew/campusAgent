@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Box, Text, Flex, Button, SimpleGrid, Badge, Table, Thead, Tbody, Tr, Th, Td, TableContainer, Input, InputGroup, InputLeftElement, Select, Avatar, HStack, IconButton, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useToast } from '@chakra-ui/react';
+import { Box, Text, Flex, Button, SimpleGrid, Badge, Table, Thead, Tbody, Tr, Th, Td, TableContainer, Input, InputGroup, InputLeftElement, Select, Avatar, HStack, IconButton, useDisclosure, Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter, useToast, useColorModeValue } from '@chakra-ui/react';
 import Card from '../../../../components/card/Card';
 import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
@@ -12,6 +12,7 @@ import useClassOptions from '../../../../hooks/useClassOptions';
 
 export default function TransportAssignmentPage() {
   const toast = useToast();
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const [entries, setEntries] = useState([]);
   const [buses, setBuses] = useState([]);
   const [routes, setRoutes] = useState([]);
@@ -112,7 +113,7 @@ export default function TransportAssignmentPage() {
           <Text fontSize='2xl' fontWeight='bold'>
             Transport Assignment
           </Text>
-          <Text fontSize='md' color='gray.500'>
+          <Text fontSize='md' color={textColorSecondary}>
             Manage student transport and bus assignments
           </Text>
         </Box>
@@ -172,7 +173,7 @@ export default function TransportAssignmentPage() {
                 <Flex p='15px' justify='space-between' align='center'>
                   <Box>
                     <Text fontWeight='bold'>Bus {bus.number}</Text>
-                    <Text fontSize='sm' color='gray.500'>{bus.routeName || 'No Route Assigned'}</Text>
+                    <Text fontSize='sm' color={textColorSecondary}>{bus.routeName || 'No Route Assigned'}</Text>
                     <HStack mt='5px' spacing='5px'>
                       <Badge colorScheme={available > 5 ? 'green' : (available > 0 ? 'orange' : 'red')}>
                         {available} seats available
@@ -191,7 +192,7 @@ export default function TransportAssignmentPage() {
             );
           })}
           {!buses.length && (
-            <Text color='gray.500'>No buses registered in this campus.</Text>
+            <Text color={textColorSecondary}>No buses registered in this campus.</Text>
           )}
         </SimpleGrid>
       </Card>

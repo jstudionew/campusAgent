@@ -89,7 +89,7 @@ export default function AttendanceMonitor() {
           <Text fontSize='2xl' fontWeight='bold'>
             Attendance Monitor
           </Text>
-          <Text fontSize='md' color='gray.500'>
+          <Text fontSize='md' color='gray.600' _dark={{ color: 'gray.400' }}>
             Real-time RFID attendance tracking system
           </Text>
         </Box>
@@ -291,7 +291,7 @@ export default function AttendanceMonitor() {
 
         {filteredLogs.length === 0 && (
           <Flex justify='center' align='center' h='100px'>
-            <Text color='gray.500'>No attendance logs found</Text>
+            <Text color='gray.600' _dark={{ color: 'gray.400' }}>No attendance logs found</Text>
           </Flex>
         )}
       </Card>

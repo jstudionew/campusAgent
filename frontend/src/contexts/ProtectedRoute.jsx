@@ -80,7 +80,8 @@ export const ProtectedRoute = ({ allowedRoles = [], children }) => {
   }
 
   // Check if user has required role
-  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role)) {
+  const customAdminRole = String(user.role || '').startsWith('custom_') && allowedRoles.includes('admin');
+  if (allowedRoles.length > 0 && !allowedRoles.includes(user.role) && !customAdminRole) {
     // Redirect to user's appropriate dashboard
     const dashboardPath = getDashboardPath(user.role);
     return <Navigate to={dashboardPath} replace />;

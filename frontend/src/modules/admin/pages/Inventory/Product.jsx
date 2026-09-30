@@ -244,7 +244,7 @@ export default function Product() {
                                 ) : filteredProducts.length === 0 ? (
                                     <Tr><Td colSpan={9} textAlign="center"><Text my={5}>No products found</Text></Td></Tr>
                                 ) : filteredProducts.map((product) => (
-                                    <Tr key={product.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                    <Tr key={product.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                         <Td><Text fontWeight="600">{product.code}</Text></Td>
                                         <Td>{product.name}</Td>
                                         <Td>{product.category}</Td>

@@ -1,6 +1,7 @@
 import { pool, query } from '../config/db.js';
 import bcrypt from 'bcryptjs';
 import crypto from 'crypto';
+import * as rbacService from './rbac.service.js';
 
 // All system roles that can be assigned to users
 export const ALLOWED_USER_ROLES = [
@@ -9,6 +10,11 @@ export const ALLOWED_USER_ROLES = [
   'finance', 'finance_manager', 'hr_manager', 'hr',
   'it_admin', 'it_support', 'library', 'transport', 'security',
 ];
+
+export const isAllowedUserRole = async (role) => {
+  if (!ALLOWED_USER_ROLES.includes(role) && !await rbacService.isCustomRole(role)) return false;
+  return rbacService.isAssignableRole(role);
+};
 
 // Normalize Pakistan WhatsApp numbers to +92 format for consistent login identifiers
 const normalizePkPhone = (raw) => {
@@ -21,18 +27,18 @@ const normalizePkPhone = (raw) => {
 };
 
 export const findUserByEmail = async (email) => {
-  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [email]);
+  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar, status FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))', [email]);
   return rows[0] || null;
 };
 
 export const findUserByUsername = async (username) => {
-  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1))', [username]);
+  const { rows } = await query('SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar, status FROM users WHERE LOWER(TRIM(username)) = LOWER(TRIM($1))', [username]);
   return rows[0] || null;
 };
 
 export const findUserByPhone = async (phone) => {
   const { rows } = await query(
-    `SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar
+    `SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar, status
      FROM users
        WHERE regexp_replace(COALESCE(phone, ''), '[^0-9]', '', 'g') <> ''
         AND regexp_replace($1, '[^0-9]', '', 'g') <> ''
@@ -50,7 +56,7 @@ export const findUserByIdentifier = async (identifier) => {
   if (!value) return null;
 
   const { rows } = await query(
-    `SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar
+    `SELECT id, username, email, password_hash, role, name, campus_id, job_title, department, phone, avatar, status
      FROM users
      WHERE LOWER(TRIM(COALESCE(email, ''))) = LOWER(TRIM($1))
         OR LOWER(TRIM(COALESCE(username, ''))) = LOWER(TRIM($1))
@@ -68,7 +74,7 @@ export const findUserByIdentifier = async (identifier) => {
 };
 
 export const findUserById = async (id) => {
-  const { rows } = await query('SELECT id, email, username, role, name, campus_id, job_title, department, phone, avatar FROM users WHERE id = $1', [id]);
+  const { rows } = await query('SELECT id, email, username, role, name, campus_id, job_title, department, phone, avatar, status FROM users WHERE id = $1', [id]);
   return rows[0] || null;
 };
 
@@ -202,27 +208,27 @@ export const updateOwnProfile = async (id, updates, { expectedRole } = {}) => {
 };
 
 // Create new user (admin only)
-export const createUser = async ({ email = null, username = null, phone = null, passwordHash, role = 'student', name, campusId, jobTitle = null, department = null }) => {
+export const createUser = async ({ email = null, username = null, phone = null, passwordHash, role = 'student', name, campusId, jobTitle = null, department = null, active = true }) => {
   // Validate role is in allowed list
-  if (!ALLOWED_USER_ROLES.includes(role)) {
+  if (!await isAllowedUserRole(role)) {
     throw new Error(`Invalid role: ${role}. Allowed roles are: ${ALLOWED_USER_ROLES.join(', ')}`);
   }
-  const columns = ['password_hash', 'role', 'name', 'campus_id', 'job_title', 'department'];
-  const values = [passwordHash, role, name || email || username || phone, campusId, jobTitle, department];
+  const columns = ['password_hash', 'role', 'name', 'campus_id', 'job_title', 'department', 'status'];
+  const values = [passwordHash, role, name || email || username || phone, campusId, jobTitle, department, active === false ? 'inactive' : 'active'];
   if (email) { columns.unshift('email'); values.unshift(email); }
   if (username) { columns.unshift('username'); values.unshift(username); }
   if (phone) { columns.unshift('phone'); values.unshift(phone); }
   const placeholders = columns.map((_, index) => `$${index + 1}`).join(',');
   const { rows } = await query(
     `INSERT INTO users (${columns.join(', ')}) VALUES (${placeholders})
-     RETURNING id, username, email, phone, role, name, campus_id, job_title, department`,
+    RETURNING id, username, email, phone, role, name, campus_id, job_title, department, status`,
     values
   );
   return rows[0];
 };
 
 export const updateUser = async (id, updates) => {
-  const { name, username, email, phone, role, passwordHash, jobTitle, department, active } = updates;
+  const { name, username, email, phone, role, passwordHash, jobTitle, department, active, campusId } = updates;
   const fields = [];
   const values = [];
   let idx = 1;
@@ -232,18 +238,20 @@ export const updateUser = async (id, updates) => {
   if (email !== undefined) { fields.push(`email = $${idx++}`); values.push(email); }
   if (phone !== undefined) { fields.push(`phone = $${idx++}`); values.push(phone); }
   if (role !== undefined) {
-    if (!ALLOWED_USER_ROLES.includes(role)) throw new Error(`Invalid role`);
+    if (!await isAllowedUserRole(role)) throw new Error(`Invalid role`);
     fields.push(`role = $${idx++}`); values.push(role);
   }
   if (passwordHash !== undefined) { fields.push(`password_hash = $${idx++}`); values.push(passwordHash); }
   if (jobTitle !== undefined) { fields.push(`job_title = $${idx++}`); values.push(jobTitle); }
   if (department !== undefined) { fields.push(`department = $${idx++}`); values.push(department); }
+  if (campusId !== undefined) { fields.push(`campus_id = $${idx++}`); values.push(campusId); }
+  if (active !== undefined) { fields.push(`status = $${idx++}`); values.push(active ? 'active' : 'inactive'); }
 
   if (fields.length === 0) return null;
 
   values.push(id);
   const { rows } = await query(
-    `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, username, email, phone, role, name, campus_id, job_title, department`,
+    `UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, username, email, phone, role, name, campus_id, job_title, department, status`,
     values
   );
   return rows[0];

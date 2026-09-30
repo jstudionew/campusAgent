@@ -124,7 +124,7 @@ export default function PostalRecord() {
                             ) : records.length === 0 ? (
                                 <Tr><Td colSpan={7} textAlign="center">No postal records found</Td></Tr>
                             ) : records.filter(r => r.subject?.toLowerCase().includes(search.toLowerCase())).map((record) => (
-                                <Tr key={record.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={record.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td>{record.date}</Td>
                                     <Td><Badge colorScheme={record.type === 'Incoming' ? 'blue' : 'purple'}>{record.type}</Badge></Td>
                                     <Td>{record.sender}</Td>

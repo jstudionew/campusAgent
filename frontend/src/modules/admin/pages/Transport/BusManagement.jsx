@@ -289,7 +289,7 @@ export default function BusManagement() {
             </Thead>
             <Tbody>
               {filtered.map((b) => (
-                <Tr key={b.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={b.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Text fontWeight='600'>{b.id}</Text></Td>
                   <Td>{b.plate}</Td>
                   <Td isNumeric>{b.capacity}</Td>

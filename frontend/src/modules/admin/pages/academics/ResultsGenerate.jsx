@@ -64,6 +64,10 @@ export default function ResultsGenerate() {
   const textColor = useColorModeValue('secondaryGray.900', 'white');
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const borderColor = useColorModeValue('gray.200', 'whiteAlpha.300');
+  const studentSearchBg = useColorModeValue('white', 'gray.700');
+  const studentOptionHoverBg = useColorModeValue('gray.50', 'whiteAlpha.200');
+  const schemaBg = useColorModeValue('gray.50', 'whiteAlpha.100');
+  const tableHeaderBg = useColorModeValue('gray.50', 'gray.800');
 
   const { classOptions, sectionsByClass } = useClassOptions();
   const [mode, setMode] = useState('classCsv'); // classCsv | studentCsv | studentManual
@@ -270,9 +274,9 @@ export default function ResultsGenerate() {
                        onChange={(e)=> setStudentQuery(e.target.value)}
                        w='260px' size='sm' />
                 {!!studentOptions.length && (
-                  <Box position='absolute' zIndex={10} bg={useColorModeValue('white','gray.700')} borderWidth='1px' borderColor={borderColor} borderRadius='8px' mt={1} w='100%' maxH='220px' overflowY='auto'>
+                  <Box position='absolute' zIndex={10} bg={studentSearchBg} borderWidth='1px' borderColor={borderColor} borderRadius='8px' mt={1} w='100%' maxH='220px' overflowY='auto'>
                     {studentOptions.map(st => (
-                      <Box key={st.id} px={3} py={2} _hover={{ bg: useColorModeValue('gray.50','whiteAlpha.200'), cursor:'pointer' }}
+                      <Box key={st.id} px={3} py={2} _hover={{ bg: studentOptionHoverBg, cursor:'pointer' }}
                            onClick={()=>{ selectStudent(st); setStudentQuery(`${st.name} (${st.id})`); setStudentOptions([]); }}>
                         <Text fontSize='sm' fontWeight='600'>{st.name}</Text>
                         <Text fontSize='xs' color={textColorSecondary}>ID: {st.id} • {st.class}{st.section?`-${st.section}`:''} • Roll: {st.rollNumber || '-'}</Text>
@@ -296,7 +300,7 @@ export default function ResultsGenerate() {
           {mode==='classCsv' && (
             <>
               <Text fontWeight='600'>CSV schema (Class upload)</Text>
-              <Box borderWidth='1px' borderColor={borderColor} borderRadius='8px' p={3} bg={useColorModeValue('gray.50','whiteAlpha.100')}>
+              <Box borderWidth='1px' borderColor={borderColor} borderRadius='8px' p={3} bg={schemaBg}>
                 <Text fontFamily='mono' fontSize='sm'>examId, studentId, subject, marks, grade</Text>
                 <Text fontFamily='mono' fontSize='sm'>101, 2001, Mathematics, 85, A</Text>
                 <Text fontFamily='mono' fontSize='sm'>101, 2002, Mathematics, 67, B</Text>
@@ -307,7 +311,7 @@ export default function ResultsGenerate() {
           {mode==='studentCsv' && (
             <>
               <Text fontWeight='600'>CSV schema (Single student)</Text>
-              <Box borderWidth='1px' borderColor={borderColor} borderRadius='8px' p={3} bg={useColorModeValue('gray.50','whiteAlpha.100')}>
+              <Box borderWidth='1px' borderColor={borderColor} borderRadius='8px' p={3} bg={schemaBg}>
                 <Text fontFamily='mono' fontSize='sm'>examId, subject, marks, grade</Text>
                 <Text fontFamily='mono' fontSize='sm'>101, Mathematics, 85, A</Text>
                 <Text fontFamily='mono' fontSize='sm'>101, Science, 67, B</Text>
@@ -323,7 +327,7 @@ export default function ResultsGenerate() {
           <Heading size='sm' p={4} borderBottomWidth='1px' borderColor={borderColor}>Preview</Heading>
           <Box overflowX='auto'>
             <Table size='sm' variant='simple'>
-              <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+              <Thead bg={tableHeaderBg}>
                 <Tr>
                   {headers.length ? headers.map(h => <Th key={h}>{h}</Th>) : <Th>No data</Th>}
                 </Tr>
@@ -358,7 +362,7 @@ export default function ResultsGenerate() {
                 <Text color={textColorSecondary} mb={3}>Class: {selectedStudent.class}{selectedStudent.section?`-${selectedStudent.section}`:''} • Subjects: {studentSubjects.length || 0}</Text>
                 <Box overflowX='auto'>
                   <Table size='sm' variant='simple'>
-                    <Thead bg={useColorModeValue('gray.50', 'gray.800')}>
+                    <Thead bg={tableHeaderBg}>
                       <Tr>
                         <Th>Subject</Th>
                         <Th isNumeric>Full Marks</Th>

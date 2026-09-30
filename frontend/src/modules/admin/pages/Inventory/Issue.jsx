@@ -133,7 +133,7 @@ export default function Issue() {
                             ) : issues.length === 0 ? (
                                 <Tr><Td colSpan={8} textAlign="center">No issues found</Td></Tr>
                             ) : issues.filter(i => getProductName(i.productId).toLowerCase().includes(search.toLowerCase()) || i.issuedTo?.toLowerCase().includes(search.toLowerCase())).map((issue) => (
-                                <Tr key={issue.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={issue.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td>{new Date(issue.date).toLocaleDateString()}</Td>
                                     <Td>{issue.department}</Td>
                                     <Td><Text fontWeight="600">{getProductName(issue.productId)}</Text></Td>

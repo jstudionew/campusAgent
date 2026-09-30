@@ -8,8 +8,8 @@ export const login = async ({ email, username, phone, password }) => {
   return http.post('/auth/login', payload);
 };
 
-export const register = async ({ email, username, phone, password, name, role, campusId, jobTitle, department }) => {
-  return http.post('/auth/register', { email, username, phone, password, name, role, campusId, jobTitle, department });
+export const register = async ({ email, username, phone, password, name, role, campusId, jobTitle, department, active }) => {
+  return http.post('/auth/register', { email, username, phone, password, name, role, campusId, jobTitle, department, active });
 };
 
 export const getVisibilitySettings = async () => {

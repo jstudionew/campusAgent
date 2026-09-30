@@ -6,6 +6,9 @@ import MiniStatistics from '../../../../components/card/MiniStatistics';
 import IconBox from '../../../../components/icons/IconBox';
 import { rbacApi, authApi } from '../../../../services/api';
 import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv } from '../../../../utils/campusExports';
+import jsPDF from 'jspdf';
+import { autoTable } from 'jspdf-autotable';
 
 const roleMap = { admin: 'Administrator', teacher: 'Teacher', student: 'Student', driver: 'Driver' };
 const baseModules = ['students', 'teachers', 'parents', 'finance', 'transport', 'attendance', 'reports', 'communication', 'settings'];
@@ -117,6 +120,31 @@ export default function Permissions() {
     return base.filter(r => (moduleFilter === 'all' || r.module === moduleFilter) && (!search || r.key.toLowerCase().includes(search.toLowerCase())));
   }, [moduleFilter, search, allowedModules]);
 
+  const exportRows = rows.flatMap((permission) => roles
+    .filter((role) => roleFilter === 'all' || role === roleFilter)
+    .map((role) => [roleMap[role] || role, permission.key, (assignments[role] || []).includes(permission.key) ? 'Allowed' : 'Denied']));
+
+  const exportCSV = () => downloadCsv({
+    filename: 'permissions.csv',
+    headers: ['Role', 'Permission', 'Access'],
+    rows: exportRows,
+  });
+
+  const exportPDF = () => {
+    const doc = new jsPDF({ orientation: 'landscape', unit: 'pt', format: 'a4' });
+    doc.setFontSize(16);
+    doc.text('Permissions Report', 40, 40);
+    autoTable(doc, {
+      startY: 60,
+      head: [['Role', 'Permission', 'Access']],
+      body: exportRows,
+      styles: { fontSize: 9, cellPadding: 5 },
+      headStyles: { fillColor: [37, 99, 235] },
+      margin: { left: 40, right: 40 },
+    });
+    doc.save('permissions.pdf');
+  };
+
   const stats = useMemo(() => ({ modules: allowedModules.length, roles: roles.length, perms: allowedModules.length * actions.length }), [roles, allowedModules]);
 
   const toggle = (role, perm, checked) => {
@@ -130,6 +158,7 @@ export default function Permissions() {
   const save = async () => {
     const rs = roleFilter === 'all' ? roles : [roleFilter];
     for (const r of rs) {
+      if (r === 'admin') continue;
       try { await rbacApi.setPermissions(r, assignments[r] || []); } catch (_) { }
     }
   };
@@ -143,8 +172,8 @@ export default function Permissions() {
         </Box>
         <ButtonGroup>
           <Button leftIcon={<MdRefresh />} variant='outline' onClick={() => window.location.reload()}>Refresh</Button>
-          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue'>Export CSV</Button>
-          <Button leftIcon={<MdFileDownload />} colorScheme='blue'>Export PDF</Button>
+          <Button leftIcon={<MdFileDownload />} variant='outline' colorScheme='blue' onClick={exportCSV} isDisabled={!exportRows.length}>Export CSV</Button>
+          <Button leftIcon={<MdFileDownload />} colorScheme='blue' onClick={exportPDF} isDisabled={!exportRows.length}>Export PDF</Button>
           <Button colorScheme='green' onClick={save}>Save</Button>
         </ButtonGroup>
       </Flex>
@@ -187,11 +216,15 @@ export default function Permissions() {
             </Thead>
             <Tbody>
               {rows.map((r) => (
-                <Tr key={r.key} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                <Tr key={r.key} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                   <Td><Text fontWeight='600'>{r.key}</Text></Td>
                   {roles.filter(x => roleFilter === 'all' || x === roleFilter).map((role) => (
                     <Td key={role} isNumeric>
-                      <Checkbox isChecked={(assignments[role] || []).includes(r.key)} onChange={(e) => toggle(role, r.key, e.target.checked)} />
+                      <Checkbox
+                        isChecked={(assignments[role] || []).includes(r.key)}
+                        isDisabled={role === 'admin'}
+                        onChange={(e) => toggle(role, r.key, e.target.checked)}
+                      />
                     </Td>
                   ))}
                 </Tr>

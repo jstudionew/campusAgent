@@ -31,6 +31,8 @@ import usePolling from '../../hooks/usePolling';
 export default function StudentDashboard() {
   const textSecondary = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const scheduleCardBg = useColorModeValue('brand.50', 'navy.700');
+  const scheduleCardBorderColor = useColorModeValue('brand.100', 'whiteAlpha.100');
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -180,10 +182,10 @@ export default function StudentDashboard() {
                   justify='space-between'
                   align='center'
                   p='12px'
-                  bg={useColorModeValue('brand.50', 'navy.700')}
+                  bg={scheduleCardBg}
                   borderRadius='10px'
                   border='1px solid'
-                  borderColor={useColorModeValue('brand.100', 'whiteAlpha.100')}
+                  borderColor={scheduleCardBorderColor}
                 >
                   <Text fontWeight='700' fontSize='sm' color={textColor} isTruncated maxW='60%'>
                     {c.subjectName} - {c.topic || c.className}

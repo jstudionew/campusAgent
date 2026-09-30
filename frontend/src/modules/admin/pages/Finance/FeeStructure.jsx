@@ -7,6 +7,8 @@ import IconBox from '../../../../components/icons/IconBox';
 import BarChart from '../../../../components/charts/BarChart';
 import PieChart from '../../../../components/charts/PieChart';
 import * as masterDataApi from '../../../../services/api/masterData';
+import { useAuth } from '../../../../contexts/AuthContext';
+import { downloadCsv, loadCampusForExport } from '../../../../utils/campusExports';
 
 const normalizeRuleRows = (value) => {
   const items = Array.isArray(value) ? value : Array.isArray(value?.data) ? value.data : [];
@@ -26,6 +28,7 @@ const normalizeRuleRows = (value) => {
 };
 
 export default function FeeStructure() {
+  const { campusId } = useAuth();
   const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const [selected, setSelected] = useState('all');
   const [rows, setRows] = useState([]);
@@ -103,18 +106,22 @@ export default function FeeStructure() {
     }
   };
 
-  const exportCSV = () => {
+  const exportCSV = async () => {
     const header = ['Class','Tuition','Transport','Exam','Misc','Discount%','Total','Net'];
     const data = rows.map(r => { const total = Number(r.tuition || r.amount || 0) + Number(r.transport || 0) + Number(r.exam || 0) + Number(r.misc || 0); const net = Math.round(total * (1 - (Number(r.discount || 0) / 100))); return [r.class, Number(r.tuition || r.amount || 0), Number(r.transport || 0), Number(r.exam || 0), Number(r.misc || 0), Number(r.discount || 0), total, net]; });
-    const csv = [header, ...data].map(a => a.join(',')).join('\n');
-    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'fee_structure.csv'; a.click(); URL.revokeObjectURL(url);
+    const campus = await loadCampusForExport(campusId);
+    downloadCsv({
+      filename: 'fee_structure.csv',
+      headers: ['Campus ID', 'Campus Name', 'Campus Logo URL', 'Fee Rule ID', ...header],
+      rows: rows.map((row, index) => [campus?.id || campusId, campus?.name, campus?.logoUrl, row.id ?? index, ...data[index]]),
+    });
   };
 
   const importJSON = async (file) => {
     try {
       const text = await file.text();
-      const data = JSON.parse(text);
+      const parsed = JSON.parse(text);
+      const data = Array.isArray(parsed) ? parsed : parsed?.feeRules;
       if (!Array.isArray(data)) throw new Error('Invalid JSON');
       const mapped = data.map((d) => ({
         class: String(d.class || d.fee_type || 'Class'),
@@ -130,8 +137,14 @@ export default function FeeStructure() {
     }
   };
 
-  const exportJSON = () => {
-    const blob = new Blob([JSON.stringify(rows, null, 2)], { type: 'application/json' });
+  const exportJSON = async () => {
+    const campus = await loadCampusForExport(campusId);
+    const exportPayload = {
+      campus: { id: campus?.id || campusId || null, name: campus?.name || null, logoUrl: campus?.logoUrl || null },
+      developedBy: { name: 'J-Studio', website: 'www.jstudio.tech', contact: '0307-7763195' },
+      feeRules: rows,
+    };
+    const blob = new Blob([JSON.stringify(exportPayload, null, 2)], { type: 'application/json' });
     const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = 'fee_structure.json'; a.click(); URL.revokeObjectURL(url);
   };
 

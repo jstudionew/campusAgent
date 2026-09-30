@@ -7,6 +7,7 @@ import IconBox from '../../components/icons/IconBox';
 export default function DriverCommunications() {
   const textSecondary = useColorModeValue('gray.600', 'gray.400');
   const border = useColorModeValue('gray.200', 'gray.600');
+  const myMessageBg = useColorModeValue('blue.50', 'blue.700');
   const broadcastDisc = useDisclosure();
 
   const conversations = useMemo(() => ([
@@ -82,7 +83,7 @@ export default function DriverCommunications() {
           <Box borderWidth='1px' borderColor={border} borderRadius='10px' p='12px' h='380px' overflowY='auto'>
             <VStack align='stretch' spacing={3}>
               {activeThread.map((m, idx) => (
-                <Box key={idx} alignSelf={m.from==='me'?'flex-end':'flex-start'} bg={m.from==='me'?useColorModeValue('blue.50','blue.700'):'transparent'} borderWidth='1px' borderColor={border} borderRadius='10px' p='8px' maxW='75%'>
+                <Box key={idx} alignSelf={m.from==='me'?'flex-end':'flex-start'} bg={m.from==='me'?myMessageBg:'transparent'} borderWidth='1px' borderColor={border} borderRadius='10px' p='8px' maxW='75%'>
                   <Text>{m.text}</Text>
                   <Text fontSize='xs' color={textSecondary} mt='2px' textAlign='right'>{m.ts}</Text>
                 </Box>

@@ -41,6 +41,7 @@ const PATH_MODULES = {
   salary: 'Finance',
   announcements: 'Communication',
   communications: 'Communication',
+  settings: 'Settings',
 };
 
 const getModuleName = (route, inheritedModule) => {
@@ -68,6 +69,8 @@ export const filterRoutesByAccess = (routes, { layout, moduleAccess, role } = {}
         return children.length ? { ...route, items: children } : null;
       }
       if (route.layout !== layout) return null;
+
+      if (role === 'admin' && route.path === '/settings/users') return route;
 
       if (role === 'parent' && layout === '/admin' &&
         route.name !== 'Parent Portal' && inheritedModule !== 'Parent Portal' &&

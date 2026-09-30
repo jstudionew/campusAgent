@@ -3,7 +3,7 @@ import {
   Box, Text, Flex, Button, ButtonGroup, SimpleGrid, Badge, Table, Thead, Tbody, Tr, Th, Td,
   TableContainer, Select, Progress, useToast, useDisclosure, Divider, Input,
   Modal, ModalOverlay, ModalContent, ModalHeader, ModalCloseButton, ModalBody, ModalFooter,
-  FormControl, FormLabel, VStack
+  FormControl, FormLabel, VStack, useColorModeValue
 } from '@chakra-ui/react';
 import { useNavigate } from 'react-router-dom';
 import Card from '../../../../components/card/Card';
@@ -53,6 +53,7 @@ function normalizePerformance(payload) {
 
 export default function StudentPerformancePage() {
   const toast = useToast();
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const { user } = useAuth();
   const navigate = useNavigate();
   const [students, setStudents] = useState([]);
@@ -305,7 +306,7 @@ export default function StudentPerformancePage() {
           <Text fontSize='2xl' fontWeight='bold'>
             Student Performance & Marks
           </Text>
-          <Text fontSize='md' color='gray.500'>
+          <Text fontSize='md' color={textColorSecondary}>
             Analyze performance, marks and result cards
           </Text>
         </Box>
@@ -411,7 +412,7 @@ export default function StudentPerformancePage() {
           <Flex justify='space-between' align='center' mb='12px'>
             <Box>
               <Text fontSize='lg' fontWeight='bold'>Exam Trend</Text>
-              <Text fontSize='sm' color='gray.500'>Average marks over exams</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Average marks over exams</Text>
             </Box>
             <Badge colorScheme='blue'>{hasRealData ? `${safeRecent.length} results` : 'Demo data'}</Badge>
           </Flex>
@@ -432,7 +433,7 @@ export default function StudentPerformancePage() {
           <Flex justify='space-between' align='center' mb='12px'>
             <Box>
               <Text fontSize='lg' fontWeight='bold'>Grade Distribution</Text>
-              <Text fontSize='sm' color='gray.500'>Recent results breakdown</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Recent results breakdown</Text>
             </Box>
             <Badge colorScheme='purple'>Donut</Badge>
           </Flex>
@@ -454,7 +455,7 @@ export default function StudentPerformancePage() {
           <Flex justify='space-between' align='center' mb='12px'>
             <Box>
               <Text fontSize='lg' fontWeight='bold'>Subject Averages</Text>
-              <Text fontSize='sm' color='gray.500'>Top subjects by average %</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Top subjects by average %</Text>
             </Box>
             <Badge colorScheme='green'>Top 8</Badge>
           </Flex>
@@ -475,7 +476,7 @@ export default function StudentPerformancePage() {
           <Flex justify='space-between' align='center' mb='12px'>
             <Box>
               <Text fontSize='lg' fontWeight='bold'>Recent Results Snapshot</Text>
-              <Text fontSize='sm' color='gray.500'>Latest exam/subject marks</Text>
+              <Text fontSize='sm' color={textColorSecondary}>Latest exam/subject marks</Text>
             </Box>
             <Badge colorScheme='orange'>{hasRealData ? 'Live' : 'Demo'}</Badge>
           </Flex>
@@ -484,15 +485,15 @@ export default function StudentPerformancePage() {
               <Flex key={idx} justify='space-between' align='center' py='8px' borderBottomWidth={idx === 5 ? 0 : '1px'} borderColor='gray.100'>
                 <Box>
                   <Text fontSize='sm' fontWeight='600'>{r.subject || 'Subject'}</Text>
-                  <Text fontSize='xs' color='gray.500'>{r.title || (r.examId ? `Exam #${r.examId}` : '')}</Text>
+                  <Text fontSize='xs' color={textColorSecondary}>{r.title || (r.examId ? `Exam #${r.examId}` : '')}</Text>
                 </Box>
                 <Box textAlign='right'>
                   <Text fontSize='sm' fontWeight='700'>{r.marks ?? '-'}</Text>
-                  <Text fontSize='xs' color='gray.500'>{r.grade || ''}</Text>
+                  <Text fontSize='xs' color={textColorSecondary}>{r.grade || ''}</Text>
                 </Box>
               </Flex>
             ))}
-            {!safeRecent.length && <Text fontSize='sm' color='gray.500'>Backend returned no results — showing demo data.</Text>}
+            {!safeRecent.length && <Text fontSize='sm' color={textColorSecondary}>Backend returned no results — showing demo data.</Text>}
           </Box>
         </Card>
       </SimpleGrid>
@@ -664,7 +665,7 @@ function AddPerformanceModal({ isOpen, onClose, studentId, onSuccess }) {
                 {subjects.map((sub, idx) => (
                   <Tr key={idx}>
                     <Td fontWeight='500'>{sub.name}</Td>
-                    <Td isNumeric color='gray.500'>{sub.fullMarks}</Td>
+                    <Td isNumeric color={textColorSecondary}>{sub.fullMarks}</Td>
                     <Td>
                       <Input
                         size='sm'

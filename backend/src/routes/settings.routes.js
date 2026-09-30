@@ -6,9 +6,9 @@ import { validate } from '../middleware/validate.js';
 
 const router = Router();
 
-router.get('/', authenticate, authorize('admin','owner'), requirePermission('settings', 'view'), controller.list);
-router.get('/:key', authenticate, authorize('admin','owner'), requirePermission('settings', 'view'), [param('key').isString()], validate, controller.getByKey);
-router.put('/:key', authenticate, authorize('admin','owner'), requirePermission('settings', 'manage'), [param('key').isString(), body('value').exists()], validate, controller.setKey);
-router.delete('/:key', authenticate, authorize('admin','owner'), requirePermission('settings', 'manage'), [param('key').isString()], validate, controller.removeKey);
+router.get('/', authenticate, authorize('owner', 'superadmin'), requirePermission('settings', 'view'), controller.list);
+router.get('/:key', authenticate, authorize('owner', 'superadmin'), requirePermission('settings', 'view'), [param('key').isString()], validate, controller.getByKey);
+router.put('/:key', authenticate, authorize('owner', 'superadmin'), requirePermission('settings', 'manage'), [param('key').isString(), body('value').exists()], validate, controller.setKey);
+router.delete('/:key', authenticate, authorize('owner', 'superadmin'), requirePermission('settings', 'manage'), [param('key').isString()], validate, controller.removeKey);
 
 export default router;

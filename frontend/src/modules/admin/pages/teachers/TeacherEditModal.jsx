@@ -91,6 +91,39 @@ const TeacherEditModal = ({
                   <Input name='phone' value={form.phone} onChange={onChange} placeholder='Contact number' />
                 </FormControl>
                 <FormControl>
+                  <FormLabel>Gender</FormLabel>
+                  <Select name='gender' value={form.gender} onChange={onChange} placeholder='Select gender'>
+                    <option value='male'>Male</option>
+                    <option value='female'>Female</option>
+                    <option value='other'>Other</option>
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Date of Birth</FormLabel>
+                  <Input name='dob' type='date' value={form.dob} onChange={onChange} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Blood Group</FormLabel>
+                  <Select name='bloodGroup' value={form.bloodGroup} onChange={onChange} placeholder='Select blood group'>
+                    <option value='A+'>A+</option>
+                    <option value='A-'>A-</option>
+                    <option value='B+'>B+</option>
+                    <option value='B-'>B-</option>
+                    <option value='O+'>O+</option>
+                    <option value='O-'>O-</option>
+                    <option value='AB+'>AB+</option>
+                    <option value='AB-'>AB-</option>
+                  </Select>
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Religion</FormLabel>
+                  <Input name='religion' value={form.religion} onChange={onChange} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>National ID</FormLabel>
+                  <Input name='nationalId' value={form.nationalId} onChange={onChange} />
+                </FormControl>
+                <FormControl>
                   <FormLabel>Employee ID</FormLabel>
                   <Input name='employeeId' value={form.employeeId} onChange={onChange} placeholder='EMP-001' />
                 </FormControl>
@@ -146,6 +179,22 @@ const TeacherEditModal = ({
                 <FormControl>
                   <FormLabel>Joining Date</FormLabel>
                   <Input name='joiningDate' type='date' value={form.joiningDate} onChange={onChange} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Probation End Date</FormLabel>
+                  <Input name='probationEndDate' type='date' value={form.probationEndDate} onChange={onChange} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Contract End Date</FormLabel>
+                  <Input name='contractEndDate' type='date' value={form.contractEndDate} onChange={onChange} />
+                </FormControl>
+                <FormControl>
+                  <FormLabel>Pay Frequency</FormLabel>
+                  <Select name='payFrequency' value={form.payFrequency} onChange={onChange}>
+                    <option value='monthly'>Monthly</option>
+                    <option value='biweekly'>Bi-Weekly</option>
+                    <option value='weekly'>Weekly</option>
+                  </Select>
                 </FormControl>
                 <FormControl>
                   <FormLabel>Experience (years)</FormLabel>

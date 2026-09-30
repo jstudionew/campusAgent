@@ -1541,7 +1541,8 @@ export async function ensureCampusSchema() {
     ALTER TABLE campuses
       ADD COLUMN IF NOT EXISTS email TEXT,
       ADD COLUMN IF NOT EXISTS capacity INTEGER,
-      ADD COLUMN IF NOT EXISTS status TEXT;
+      ADD COLUMN IF NOT EXISTS status TEXT,
+      ADD COLUMN IF NOT EXISTS logo_url TEXT;
 
     UPDATE campuses SET status = 'active' WHERE status IS NULL;
 
@@ -1612,15 +1613,25 @@ export async function ensureCampusSchema() {
 
 export async function ensureRBACSchema() {
   await query(`
-    -- Expand user role constraint to include all system roles
+    -- Role identifiers are validated by the application to support custom RBAC roles.
     ALTER TABLE users DROP CONSTRAINT IF EXISTS users_role_check;
-    ALTER TABLE users ADD CONSTRAINT users_role_check CHECK (
-      role IN (
-        'owner','superadmin','admin','teacher','student','driver','parent',
-        'academic_coordinator','admissions','reception','office_staff',
-        'finance','finance_manager','hr_manager','hr',
-        'it_admin','it_support','library','transport','security'
-      )
+    DO $$
+    BEGIN
+      IF EXISTS (
+        SELECT 1 FROM information_schema.columns
+        WHERE table_schema = 'public' AND table_name = 'users'
+          AND column_name = 'role' AND data_type = 'USER-DEFINED'
+      ) THEN
+        ALTER TABLE users ALTER COLUMN role TYPE TEXT USING role::text;
+      END IF;
+    END $$;
+
+    CREATE TABLE IF NOT EXISTS custom_roles (
+      role_key TEXT PRIMARY KEY,
+      name TEXT NOT NULL,
+      active BOOLEAN NOT NULL DEFAULT TRUE,
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      CHECK (role_key LIKE 'custom_%')
     );
 
     -- Add job title and department fields to users table

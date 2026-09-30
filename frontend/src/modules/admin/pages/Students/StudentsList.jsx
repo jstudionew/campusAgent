@@ -19,6 +19,7 @@ import {
   Select,
   Avatar,
   HStack,
+  useColorModeValue,
   useToast,
   Menu,
   MenuButton,
@@ -56,6 +57,7 @@ import StudentProfile from './StudentProfile';
 import EditStudent from './EditStudent';
 
 export default function StudentsList() {
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.400');
   const { campusId } = useAuth();
   const [searchQuery, setSearchQuery] = useState('');
   const [filterClass, setFilterClass] = useState('all');
@@ -141,7 +143,7 @@ export default function StudentsList() {
           <Text fontSize='2xl' fontWeight='bold'>
             Student Management
           </Text>
-          <Text fontSize='md' color='gray.500'>
+          <Text fontSize='md' color={textColorSecondary}>
             Manage all students and RFID tags
           </Text>
         </Box>
@@ -215,7 +217,7 @@ export default function StudentsList() {
                       />
                       <Box>
                         <Text fontWeight='500'>{student.name}</Text>
-                        <Text fontSize='xs' color='gray.500'>
+                        <Text fontSize='xs' color={textColorSecondary}>
                           {student.email}
                         </Text>
                       </Box>
@@ -313,7 +315,7 @@ export default function StudentsList() {
 
         {filteredStudents.length === 0 && (
           <Flex justify='center' align='center' h='100px'>
-            <Text color='gray.500'>No students found</Text>
+            <Text color={textColorSecondary}>No students found</Text>
           </Flex>
         )}
       </Card>

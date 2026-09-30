@@ -39,6 +39,15 @@ const AttendanceDetailModal = ({ isOpen, onClose, student, attendanceData, selec
   // Colors
   const bgColor = useColorModeValue('white', 'gray.800');
   const borderColor = useColorModeValue('gray.200', 'gray.700');
+  const textColorSecondary = useColorModeValue('gray.600', 'gray.300');
+  const emailColor = useColorModeValue('blue.600', 'blue.300');
+  const recentActivityBg = useColorModeValue('gray.50', 'gray.700');
+  const summaryColors = {
+    present: { bg: useColorModeValue('green.50', 'green.900'), text: useColorModeValue('green.700', 'green.100') },
+    absent: { bg: useColorModeValue('red.50', 'red.900'), text: useColorModeValue('red.700', 'red.100') },
+    late: { bg: useColorModeValue('orange.50', 'orange.900'), text: useColorModeValue('orange.700', 'orange.100') },
+    leave: { bg: useColorModeValue('yellow.50', 'yellow.900'), text: useColorModeValue('yellow.800', 'yellow.100') },
+  };
   
   // Calculate attendance stats when student or data changes
   useEffect(() => {
@@ -99,7 +108,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, student, attendanceData, selec
                   mb={4}
                 />
                 <Text fontWeight="bold" fontSize="xl">{student.name}</Text>
-                <Text color="gray.500">Student</Text>
+                <Text color={textColorSecondary}>Student</Text>
               </Flex>
               
               <VStack align="start" spacing={4} w="full">
@@ -110,7 +119,7 @@ const AttendanceDetailModal = ({ isOpen, onClose, student, attendanceData, selec
                 
                 <HStack>
                   <Text fontWeight="medium" width="100px">Email:</Text>
-                  <Text color="blue.500">{student.email || 'student@school.com'}</Text>
+                  <Text color={emailColor}>{student.email || 'student@school.com'}</Text>
                 </HStack>
                 
                 <HStack>
@@ -133,21 +142,21 @@ const AttendanceDetailModal = ({ isOpen, onClose, student, attendanceData, selec
               
               {/* Attendance Summary */}
               <Grid templateColumns="repeat(4, 1fr)" gap={4}>
-                <Box bg="green.50" p={3} borderRadius="md" textAlign="center">
-                  <Text fontWeight="bold" color="green.500">Present</Text>
-                  <Text fontSize="xl" fontWeight="bold">{stats.present}</Text>
+                <Box bg={summaryColors.present.bg} p={3} borderRadius="md" textAlign="center">
+                  <Text fontWeight="bold" color={summaryColors.present.text}>Present</Text>
+                  <Text fontSize="xl" fontWeight="bold" color={summaryColors.present.text}>{stats.present}</Text>
                 </Box>
-                <Box bg="red.50" p={3} borderRadius="md" textAlign="center">
-                  <Text fontWeight="bold" color="red.500">Absent</Text>
-                  <Text fontSize="xl" fontWeight="bold">{stats.absent}</Text>
+                <Box bg={summaryColors.absent.bg} p={3} borderRadius="md" textAlign="center">
+                  <Text fontWeight="bold" color={summaryColors.absent.text}>Absent</Text>
+                  <Text fontSize="xl" fontWeight="bold" color={summaryColors.absent.text}>{stats.absent}</Text>
                 </Box>
-                <Box bg="orange.50" p={3} borderRadius="md" textAlign="center">
-                  <Text fontWeight="bold" color="orange.500">Late</Text>
-                  <Text fontSize="xl" fontWeight="bold">{stats.late}</Text>
+                <Box bg={summaryColors.late.bg} p={3} borderRadius="md" textAlign="center">
+                  <Text fontWeight="bold" color={summaryColors.late.text}>Late</Text>
+                  <Text fontSize="xl" fontWeight="bold" color={summaryColors.late.text}>{stats.late}</Text>
                 </Box>
-                <Box bg="yellow.50" p={3} borderRadius="md" textAlign="center">
-                  <Text fontWeight="bold" color="yellow.500">Leave</Text>
-                  <Text fontSize="xl" fontWeight="bold">{stats.leave}</Text>
+                <Box bg={summaryColors.leave.bg} p={3} borderRadius="md" textAlign="center">
+                  <Text fontWeight="bold" color={summaryColors.leave.text}>Leave</Text>
+                  <Text fontSize="xl" fontWeight="bold" color={summaryColors.leave.text}>{stats.leave}</Text>
                 </Box>
               </Grid>
             </GridItem>
@@ -227,10 +236,10 @@ const AttendanceDetailModal = ({ isOpen, onClose, student, attendanceData, selec
                 align="center" 
                 justify="center" 
                 p={6} 
-                bg="gray.50" 
+                bg={recentActivityBg}
                 borderRadius="md"
               >
-                <Text color="gray.500">No recent logs</Text>
+                <Text color={textColorSecondary}>No recent logs</Text>
                 <Button size="sm" colorScheme="blue" mt={4} leftIcon={<Icon as={MdAccessTime} />}>
                   Sync now
                 </Button>

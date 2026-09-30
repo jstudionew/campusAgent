@@ -33,6 +33,8 @@ import usePolling from '../../hooks/usePolling';
 export default function TeacherDashboard() {
   const textSecondary = useColorModeValue('secondaryGray.600', 'secondaryGray.400');
   const textColor = useColorModeValue('secondaryGray.900', 'white');
+  const upcomingClassBg = useColorModeValue('brand.50', 'navy.700');
+  const upcomingClassBorderColor = useColorModeValue('brand.100', 'whiteAlpha.100');
   const navigate = useNavigate();
   const { user } = useAuth();
 
@@ -201,10 +203,10 @@ export default function TeacherDashboard() {
               justify='space-between'
               align='center'
               p='14px'
-              bg={useColorModeValue('brand.50', 'navy.700')}
+              bg={upcomingClassBg}
               borderRadius='12px'
               border='1px solid'
-              borderColor={useColorModeValue('brand.100', 'whiteAlpha.100')}
+              borderColor={upcomingClassBorderColor}
               mb='16px'
             >
               <VStack align='start' spacing={1}>

@@ -139,7 +139,7 @@ export default function Sales() {
                             ) : sales.length === 0 ? (
                                 <Tr><Td colSpan={8} textAlign="center">No sales found</Td></Tr>
                             ) : sales.filter(s => getProductName(s.productId).toLowerCase().includes(search.toLowerCase()) || s.customer?.toLowerCase().includes(search.toLowerCase())).map((sale) => (
-                                <Tr key={sale.id} _hover={{ bg: useColorModeValue('gray.50', 'gray.700') }}>
+                                <Tr key={sale.id} _hover={{ bg: 'gray.50', _dark: { bg: 'gray.700' } }}>
                                     <Td>{new Date(sale.date).toLocaleDateString()}</Td>
                                     <Td>{sale.customer}</Td>
                                     <Td><Text fontWeight="600">{getProductName(sale.productId)}</Text></Td>
